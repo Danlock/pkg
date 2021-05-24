@@ -8,7 +8,8 @@ BINNAME = changeme
 
 .PHONY: build
 
-depend:
+depend: deps
+deps:
 	go tidy
 	go mod vendor
 
@@ -19,7 +20,7 @@ docker-build:
 docker build -t $(BINNAME) .
 
 run:
-	CGO_ENABLED=0go run -ldflags "$(LDFLAGS)" ./...
+	CGO_ENABLED=0 go run -ldflags "$(LDFLAGS)" ./...
 
 version: 
 	@echo $(SHORTBUILDTAG)
