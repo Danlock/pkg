@@ -4,7 +4,7 @@ GITCOMMITNO = $(shell git rev-list --all --count)
 SHORTBUILDTAG = $(GITCOMMITNO).$(GITHASH)
 BUILDINFO = Build Time:$(BUILDTIME)
 LDFLAGS = -X 'main.buildTag=$(SHORTBUILDTAG)' -X 'main.buildInfo=$(BUILDINFO)'
-BINNAME = lockstep
+BINNAME = changeme
 
 .PHONY: build
 
