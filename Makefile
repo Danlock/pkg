@@ -17,7 +17,7 @@ build: gen
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o ./bin/$(BINNAME) ./cmd/$(BINNAME)
 
 docker-build:
-docker build -t $(BINNAME) .
+	docker build -t $(BINNAME) .
 
 run:
 	CGO_ENABLED=0 go run -ldflags "$(LDFLAGS)" ./...
