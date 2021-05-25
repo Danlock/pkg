@@ -13,7 +13,7 @@ deps:
 	go tidy
 	go mod vendor
 
-build: gen
+build:
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o ./bin/$(BINNAME) ./cmd/$(BINNAME)
 
 docker-build:
