@@ -23,10 +23,7 @@ func main() {
 	log.SetPrefix(buildTag + " ")
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.LUTC | log.Lshortfile)
 
-	go func() {
-		<-ctx.Done()
-		log.Fatal("Received signal, shutting down...")
-	}()
+	go func() { <-ctx.Done(); log.Fatal("Received signal, shutting down...") }()
 
 	log.Printf("%s Built With: %s", buildInfo, runtime.Version())
 

@@ -10,7 +10,7 @@ BINNAME = changeme
 
 depend: deps
 deps:
-	go tidy
+	go mod tidy
 	go mod vendor
 
 build:
