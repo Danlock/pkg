@@ -7,8 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-
-	"github.com/joho/godotenv"
+	// "github.com/joho/godotenv"
 )
 
 var (
@@ -36,8 +35,9 @@ func main() {
 	flag.StringVar(&dotenvLocation, "e", "./ops/.env", "Location of .env file with environment variables in KEY=VALUE format. .env file takes precendence over real env vars.")
 	flag.Parse()
 
-	if err := godotenv.Overload(dotenvLocation); err != nil {
-		log.Printf("No .env file found")
-	}
+	// Example of using gotdotenv. Don't want to include this in this package's dependencies however.
+	// if err := godotenv.Overload(dotenvLocation); err != nil {
+	// 	log.Printf("No .env file found")
+	// }
 
 }
