@@ -11,16 +11,25 @@ import (
 	"runtime"
 )
 
+// New creates a new error with the package.func of it's caller prepended.
 func New(text string) error {
 	return errors.New(prependCaller(text, 2) + text)
 }
 
+// Errorf is like fmt.Errorf with the "package.func" of it's caller prepended.
 func Errorf(format string, a ...any) error {
 	return fmt.Errorf(prependCaller(format, 2), a...)
 }
 
+// Errorf is like fmt.Errorf with the "package.func" of the desired caller prepended.
 func ErrorfWithSkip(format string, skip int, a ...any) error {
 	return fmt.Errorf(prependCaller(format, skip), a...)
+}
+
+// Wrap wraps an error with the caller's package.func prepended.
+// It's slightly different from github.com/pkg/errors.Wrap as it's exclusively for wrapping an error with nothing more than the calling functions name.
+func Wrap(err error) error {
+	return fmt.Errorf(prependCaller("%w", 2), err)
 }
 
 func prependCaller(text string, skip int) string {
