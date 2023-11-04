@@ -1,4 +1,7 @@
 // Personalize the errors stdlib to prepend the calling functions name to errors for simple traces
+// An example of how this work can be seen at github.com/danlock/gogosseract.
+// Example error message from gogosseract:
+// gogosseract.NewPool failed worker setup due to gogosseract.(*Pool).runTesseract gogosseract.New gogosseract.Tesseract.createByteView wasm.GetReaderSize io.Reader was empty
 package errors
 
 import (
@@ -30,7 +33,7 @@ func prependCaller(text string, skip int) string {
 		return ""
 	}
 	// f.Name() gives back something like github.com/danlock/pkg.funcName.
-	// with just the package name and the func name, nested errors look more readable even with less effort in good error messages
+	// with just the package name and the func name, nested errors look more readable by default.
 	// We also avoid an ugly giant stack trace that won't always get printed out.
 	_, fName := path.Split(f.Name())
 	return fmt.Sprint(fName, " ", text)
