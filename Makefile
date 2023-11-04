@@ -1,4 +1,5 @@
 #! /usr/bin/make
+SHELL = /bin/bash
 BUILDTIME = $(shell date -u --rfc-3339=seconds)
 GITHASH = $(shell git describe --dirty --always --tags)
 GITCOMMITNO = $(shell git rev-list --all --count)
