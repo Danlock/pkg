@@ -27,8 +27,13 @@ func ErrorfWithSkip(format string, skip int, a ...any) error {
 }
 
 // Wrap wraps an error with the caller's package.func prepended.
-// It's slightly different from github.com/pkg/errors.Wrap as it's exclusively for wrapping an error with nothing more than the calling functions name.
+// Similar to github.com/pkg/errors.Wrap it also returns nil if err is nil, unlike fmt.Errorf.
+// Exclusively for wrapping an error with nothing more than the calling functions name, as more involved errors
+// should use Errorf to match up a tiny bit closer with the Go stdlib.
 func Wrap(err error) error {
+	if err == nil {
+		return nil
+	}
 	return fmt.Errorf(prependCaller("%w", 2), err)
 }
 
