@@ -13,7 +13,7 @@ import (
 
 // New creates a new error with the package.func of it's caller prepended.
 func New(text string) error {
-	return errors.New(prependCaller(text, 2) + text)
+	return errors.New(prependCaller(text, 2))
 }
 
 // Errorf is like fmt.Errorf with the "package.func" of it's caller prepended.
