@@ -1,3 +1,3 @@
 module github.com/danlock/pkg
 
-go 1.21
+go 1.21.0
