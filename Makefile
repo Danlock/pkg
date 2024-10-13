@@ -9,7 +9,7 @@ LDFLAGS = -X 'main.buildTag=$(SHORTBUILDTAG)' -X 'main.buildInfo=$(BUILDINFO)'
 BINNAME = changeme
 PKGNAME = github.com/danlock/pkg
 
-.PHONY: build
+.PHONY: build test
 
 depend: deps
 deps:
@@ -27,6 +27,10 @@ run:
 
 version:
 	@echo $(SHORTBUILDTAG)
+
+
+test:
+	@go test -failfast -count=1  ./...
 
 coverage:
 	@go test -failfast -covermode=count -coverprofile=$(COVERAGE_PATH)

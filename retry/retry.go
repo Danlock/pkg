@@ -59,12 +59,10 @@ func WithMaxAttempts(ctx context.Context, maxAttempts uint, delay func(attempt u
 
 		if fn() {
 			attempts = 0
+		} else if maxAttempts > 0 && attempts >= maxAttempts {
+			return
 		} else {
 			attempts++
-		}
-
-		if maxAttempts > 0 && attempts >= maxAttempts {
-			return
 		}
 
 		tmr.Reset(delay(attempts))
