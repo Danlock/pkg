@@ -1,4 +1,4 @@
-package readseeker
+package ioutil
 
 import "io"
 
