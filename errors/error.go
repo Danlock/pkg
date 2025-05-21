@@ -1,4 +1,4 @@
-// Personalize the errors stdlib to prepend the calling functions name to errors for simple traces
+// Personalize the errors stdlib to prepend the calling functions name to errors for simpler, smaller traces
 // An example of how this work can be seen at github.com/danlock/gogosseract.
 // Example error message from gogosseract:
 // gogosseract.NewPool failed worker setup due to gogosseract.(*Pool).runTesseract gogosseract.New gogosseract.Tesseract.createByteView wasm.GetReaderSize io.Reader was empty
@@ -28,8 +28,6 @@ func ErrorfWithSkip(format string, skip int, a ...any) error {
 
 // Wrap wraps an error with the caller's package.func prepended.
 // Similar to github.com/pkg/errors.Wrap it also returns nil if err is nil, unlike fmt.Errorf.
-// Exclusively for wrapping an error with nothing more than the calling functions name,
-// as more involved errors should use Errorf
 func Wrap(err error) error {
 	if err == nil {
 		return nil
@@ -37,6 +35,17 @@ func Wrap(err error) error {
 	return fmt.Errorf(prependCaller("%w", 2), err)
 }
 
+// Wrapf wraps an error with the caller's package.func prepended.
+// Similar to github.com/pkg/errors.Wrap it also returns nil if err is nil, unlike fmt.Errorf.
+func Wrapf(err error, format string, a ...any) error {
+	if err == nil {
+		return nil
+	}
+	a = append(a, err)
+	return fmt.Errorf(prependCaller(format+" %w", 2), a...)
+}
+
+// TODO: transform this into using runtime.Callers(skip) and a skip sized slice.
 func prependCaller(text string, skip int) string {
 	pc, _, _, ok := runtime.Caller(skip)
 	if !ok {
@@ -51,6 +60,30 @@ func prependCaller(text string, skip int) string {
 	// We also avoid the ugly giant stack trace cluttering logs and looking similar to panics.
 	_, fName := path.Split(f.Name())
 	return fmt.Sprint(fName, " ", text)
+}
+
+// Into finds the first error in err's chain that matches target type T, and if so, returns it.
+//
+// Into is type-safe alternative to As.
+func Into[T error](err error) (val T, ok bool) {
+	ok = errors.As(err, &val)
+	return val, ok
+}
+
+// Must is a generic helper, like template.Must, that wraps a call to a function returning (T, error)
+// and panics if the error is non-nil.
+func Must[T any](val T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
+func Must2[T, U any](val T, val2 U, err error) (T, U) {
+	if err != nil {
+		panic(err)
+	}
+	return val, val2
 }
 
 // The following simply call the stdlib so users don't need to include both errors packages.
