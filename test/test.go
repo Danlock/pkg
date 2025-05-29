@@ -2,9 +2,80 @@ package test
 
 import "testing"
 
-func FailOnError(t testing.TB, err error) {
+func splitMsgs(t testing.TB, msgs ...any) (string, []any) {
+	if len(msgs) == 0 {
+		return "", nil
+	}
+
+	msg, ok := msgs[0].(string)
+	if !ok {
+		t.Fatalf("first msg must be a string instead of a %T", msgs[0])
+		return "", nil
+	}
+
+	if len(msgs) == 1 {
+		return msg, nil
+	}
+
+	return msg, msgs[1:]
+}
+
+// FailOnError calls t.Errorf if err is not nil with the error and any additional args passed in.
+func FailOnError(t testing.TB, err error, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
 	if err != nil {
 		t.Helper()
-		t.Fatalf("%+v", err)
+		t.Errorf(msg+" err='%+v'", append(args, err)...)
+	}
+}
+
+// AbortOnError calls t.Fatalf if err is not nil with the error and any additional args passed in.
+func AbortOnError(t testing.TB, err error, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
+	if err != nil {
+		t.Helper()
+		t.Fatalf(msg+" err='%+v'", append(args, err)...)
+	}
+}
+
+// AbortOnErrorVal calls t.Fatalf if err is not nil with the error and any additional args passed in.
+func AbortOnErrorVal[T any](t testing.TB, msgs ...any) func(val T, err error) T {
+	msg, args := splitMsgs(t, msgs...)
+	return func(val T, err error) T {
+		if err != nil {
+			t.Helper()
+			t.Fatalf(msg+" err='%+v'", append(args, err)...)
+		}
+		return val
+	}
+}
+
+// AbortOnErrorValues calls t.Fatalf if err is not nil with the error and any additional args passed in.
+func AbortOnErrorValues[T, U any](t testing.TB, msgs ...any) func(val1 T, val2 U, err error) (T, U) {
+	msg, args := splitMsgs(t, msgs...)
+	return func(val1 T, val2 U, err error) (T, U) {
+		if err != nil {
+			t.Helper()
+			t.Fatalf(msg+" err='%+v'", append(args, err)...)
+		}
+		return val1, val2
+	}
+}
+
+// FailOnCompare calls t.Errorf if wanted != expected and any additional args passed in.
+func FailOnCompare[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
+	if wanted != actual {
+		t.Helper()
+		t.Errorf(msg+" wanted=%v actual=%v", append(args, wanted, actual)...)
+	}
+}
+
+// AbortOnCompare calls t.Fatalf if wanted != expected and any additional args passed in.
+func AbortOnCompare[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
+	if wanted != actual {
+		t.Helper()
+		t.Fatalf(msg+" wanted=%v actual=%v", append(args, wanted, actual)...)
 	}
 }

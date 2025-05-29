@@ -1,66 +1,77 @@
 #! /usr/bin/make
+
 SHELL = /bin/bash
-BUILDTIME = $(shell date -u --rfc-3339=seconds)
+.SHELLFLAGS := -eu -o pipefail -c
+MAKEFLAGS += --warn-undefined-variables
+ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+
 GITHASH = $(shell git describe --dirty --always)
 GITCOMMITNO = $(shell git rev-list --all --count)
 SHORTBUILDTAG = v0.0.$(GITCOMMITNO)-$(GITHASH)
+BUILDTIME = $(shell date -u --rfc-3339=seconds)
 BUILDINFO = Build Time:$(BUILDTIME)
-LDFLAGS = -X 'main.buildTag=$(SHORTBUILDTAG)' -X 'main.buildInfo=$(BUILDINFO)'
-BINNAME = changeme
-PKGNAME = github.com/danlock/pkg
 
-.PHONY: build test
+.DEFAULT_GOAL := help
+.PHONY: help
+help:  ## Show this help
+	@grep -E '^([a-zA-Z_-]+):.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "%-20s %s\n", $$1, $$2}'
 
-depend: deps
-deps:
+.PHONY: deps
+deps: ## Update dependencies
 	go mod tidy
 	go mod vendor
 
-build:
+LDFLAGS = -X 'main.buildTag=$(SHORTBUILDTAG)' -X 'main.buildInfo=$(BUILDINFO)'
+BINNAME = changeme
+.PHONY: build
+build: ## Build binary
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o ./bin/$(BINNAME) ./cmd/$(BINNAME)
 
-docker-build:
-	docker build -t $(BINNAME) .
-
-run:
+.PHONY: run
+run: ## Run binary directly
 	CGO_ENABLED=0 go run -ldflags "$(LDFLAGS)" ./...
 
-version:
+.PHONY: version
+version: ## Print current version
 	@echo $(SHORTBUILDTAG)
 
+COVERAGE_DIR ?= $(ROOT_DIR)/bin/coverage
+TEST_FLAGS ?= -failfast -count=1 -covermode=atomic
+.PHONY: test
+test: ## Run all tests
+	@rm -rf $(COVERAGE_DIR)/* || true
+	@mkdir -p $(COVERAGE_DIR) || true
+	@go test $(TEST_FLAGS) -coverprofile=$(COVERAGE_DIR)/cov.out ./...
+	@go tool cover -func=$(COVERAGE_DIR)/cov.out | tail -n 1
 
-test:
-	@go test -failfast -count=1  ./...
+.PHONY: coverage-html
+coverage-html: ## Generate HTML coverage report
+	@rm $(COVERAGE_DIR).html || true
+	@go tool cover -html=$(COVERAGE_DIR)/cov.out -o $(COVERAGE_DIR).html
 
-coverage:
-	@go test -failfast -covermode=count -coverprofile=$(COVERAGE_PATH)
+.PHONY: coverage-browser
+coverage-browser: ## Open HTML coverage report in browser
+	@go tool cover -html=$(COVERAGE_DIR)/cov.out
 
-coverage-html:
-	@rm $(COVERAGE_PATH) || true
-	@$(MAKE) coverage
-	@rm $(COVERAGE_PATH).html || true
-	@go tool cover -html=$(COVERAGE_PATH) -o $(COVERAGE_PATH).html
+.PHONY: update-readme-badge
+update-readme-badge: ## Update coverage badge within README.md
+	@go tool cover -func=$(COVERAGE_DIR)/cov.out -o=$(COVERAGE_DIR)/cov.badge
+	@go run github.com/AlexBeauchemin/gobadge@v0.3.0 -filename=$(COVERAGE_DIR)/cov.badge
 
-coverage-browser:
-	@rm $(COVERAGE_PATH) || true
-	@$(MAKE) coverage
-	@go tool cover -html=$(COVERAGE_PATH)
-
-update-readme-badge:
-	@go tool cover -func=$(COVERAGE_PATH) -o=$(COVERAGE_PATH).badge
-	@go run github.com/AlexBeauchemin/gobadge@v0.3.0 -filename=$(COVERAGE_PATH).badge
-
-# pkg.go.dev documentation is updated via go get updating the google proxy from another package
-update-godocs:
+PKGNAME = github.com/danlock/pkg
+# pkg.go.dev documentation can be updated via go get updating the google proxy from another package
+.PHONY: update-godocs
+update-godocs: ## Update pkg.go.dev documentation
 	@cd ../rmq; \
 	GOPROXY=https://proxy.golang.org go get -u $(PKGNAME); \
 	go mod tidy
 
-release:
+.PHONY: release
+release: ## Tag and push current commit as a release
 	@$(MAKE) deps
 ifeq ($(findstring dirty,$(SHORTBUILDTAG)),dirty)
 	@echo "Version $(SHORTBUILDTAG) is filthy, commit to clean it" && exit 1
 endif
-	@read -t 5 -p "$(SHORTBUILDTAG) will be the new released version. Hit enter to proceed, CTRL-C to cancel."
+	@read -t 10 -p "$(SHORTBUILDTAG) will be the new released version. Hit enter to proceed, CTRL-C to cancel."
 	@git tag $(SHORTBUILDTAG)
 	@git push origin $(SHORTBUILDTAG)
