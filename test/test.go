@@ -10,7 +10,6 @@ func splitMsgs(t testing.TB, msgs ...any) (string, []any) {
 	msg, ok := msgs[0].(string)
 	if !ok {
 		t.Fatalf("first msg must be a string instead of a %T", msgs[0])
-		return "", nil
 	}
 
 	if len(msgs) == 1 {
@@ -62,20 +61,38 @@ func AbortOnErrorValues[T, U any](t testing.TB, msgs ...any) func(val1 T, val2 U
 	}
 }
 
-// FailOnCompare calls t.Errorf if wanted != expected and any additional args passed in.
-func FailOnCompare[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
+// Equality calls t.Errorf if wanted != expected with any additional args passed in.
+func Equality[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
 	msg, args := splitMsgs(t, msgs...)
 	if wanted != actual {
 		t.Helper()
-		t.Errorf(msg+" wanted=%v actual=%v", append(args, wanted, actual)...)
+		t.Errorf(msg+" {wanted=%v actual=%v}", append(args, wanted, actual)...)
 	}
 }
 
-// AbortOnCompare calls t.Fatalf if wanted != expected and any additional args passed in.
-func AbortOnCompare[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
+// EqualityOrAbort calls t.Fatalf if wanted != expected with any additional args passed in.
+func EqualityOrAbort[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
 	msg, args := splitMsgs(t, msgs...)
 	if wanted != actual {
 		t.Helper()
-		t.Fatalf(msg+" wanted=%v actual=%v", append(args, wanted, actual)...)
+		t.Fatalf(msg+" {wanted=%v actual=%v}", append(args, wanted, actual)...)
+	}
+}
+
+// Truth calls t.Errorf if actual != true with any additional args passed in.
+func Truth(t testing.TB, actual bool, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
+	if !actual {
+		t.Helper()
+		t.Errorf(msg, args...)
+	}
+}
+
+// TruthOrAbort calls t.Fatalf if actual != true with any additional args passed in.
+func TruthOrAbort(t testing.TB, actual bool, msgs ...any) {
+	msg, args := splitMsgs(t, msgs...)
+	if !actual {
+		t.Helper()
+		t.Fatalf(msg, args...)
 	}
 }

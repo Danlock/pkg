@@ -64,10 +64,9 @@ func prependCaller(text string, skip int) string {
 
 // Into finds the first error in err's chain that matches target type T, and if so, returns it.
 //
-// Into is type-safe alternative to As.
+// Into is a type-safe alternative to As.
 func Into[T error](err error) (val T, ok bool) {
-	ok = errors.As(err, &val)
-	return val, ok
+	return val, errors.As(err, &val)
 }
 
 // Must is a generic helper, like template.Must, that wraps a call to a function returning (T, error)
