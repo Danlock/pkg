@@ -98,7 +98,7 @@ func TestMeta(t *testing.T) {
 			"single layer",
 			oops(),
 			true,
-			nil,
+			[]slog.Attr{attr1, attr2},
 			"errors.TestMeta.func1 oops",
 			"errors.TestMeta.func1 oops {key=value,id=1234}",
 		},
@@ -108,7 +108,7 @@ func TestMeta(t *testing.T) {
 				return WrapMeta(regErr(oops()), attr3)
 			}(),
 			true,
-			nil,
+			[]slog.Attr{attr3, attr1, attr2},
 			"stdlib errors.TestMeta.func1 oops",
 			"stdlib errors.TestMeta.func1 oops {ts=0001-01-01 00:00:00 +0000 UTC,key=value,id=1234}",
 		},
@@ -117,8 +117,8 @@ func TestMeta(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			test.Equality(t, tt.wantErr, tt.err != nil, "WrapMeta() error = %+v, wantErr %v", tt.err, tt.wantErr)
 
-			if len(tt.wantMeta) > 0 && !reflect.DeepEqual(UnwrapMeta(tt.err), tt.wantMeta) {
-				t.Errorf("UnwrapMeta() got = %+v, wanted %+v", UnwrapMeta(tt.err), tt.wantMeta)
+			if len(tt.wantMeta) > 0 && !reflect.DeepEqual(UnwrapMeta(tt.err), append(tt.wantMeta, slog.Any("err", tt.err))) {
+				t.Errorf("UnwrapMeta() got = %+v, wanted %+v", UnwrapMeta(tt.err), append(tt.wantMeta, slog.Any("err", tt.err)))
 			}
 			if len(tt.wantBasic) > 0 {
 				test.Equality(t, tt.wantBasic, fmt.Sprintf("%v", tt.err), "fmt.Sprintf %%v")

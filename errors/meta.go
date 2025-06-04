@@ -42,6 +42,7 @@ func stringifyAttr(meta []slog.Attr) string {
 
 // Not sure how I feel about this. I like being able to print all at the metadata in a quick and dirty way
 // but if a logger defaults to %+v it would annoyingly duplicate the metadata.
+// However as slog is in the stdlib, it's fair to expect other loggers to confirm to slog.LogValuer eventually.
 func (e metaErr) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':
