@@ -16,11 +16,10 @@ type metaErr struct {
 	meta []slog.Attr
 }
 
-func (e metaErr) Unwrap() error  { return e.error }
-func (e metaErr) String() string { return e.Error() }
-
 // LogValue overwrites slog's default logging behaviour of %+v which would duplicate the metadata.
 func (e metaErr) LogValue() slog.Value { return slog.StringValue(e.Error()) }
+func (e metaErr) Unwrap() error        { return e.error }
+func (e metaErr) String() string       { return e.Error() }
 
 func stringifyAttr(meta []slog.Attr) string {
 	if len(meta) == 0 {
@@ -61,7 +60,6 @@ func (e metaErr) Format(s fmt.State, verb rune) {
 // The error itself is also included as slog.Any("err", err) for ease of use with slog.LogAttrs.
 func UnwrapMeta(err error) []slog.Attr {
 	return append(UnwrapMetaSansErr(err), slog.Any("err", err))
-
 }
 
 // UnwrapMetaSansErr pulls metadata from every error in the chain for structured logging purposes.

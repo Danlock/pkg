@@ -13,12 +13,12 @@ import (
 
 // New creates a new error with the package.func of it's caller prepended.
 func New(text string) error {
-	return errors.New(prependCaller(text, 2))
+	return errors.New(prependCaller(text, 3))
 }
 
 // Errorf is like fmt.Errorf with the "package.func" of it's caller prepended.
 func Errorf(format string, a ...any) error {
-	return fmt.Errorf(prependCaller(format, 2), a...)
+	return fmt.Errorf(prependCaller(format, 3), a...)
 }
 
 // Errorf is like fmt.Errorf with the "package.func" of the desired caller prepended.
@@ -32,7 +32,7 @@ func Wrap(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf(prependCaller("%w", 2), err)
+	return fmt.Errorf(prependCaller("%w", 3), err)
 }
 
 // Wrapf wraps an error with the caller's package.func prepended.
@@ -42,16 +42,15 @@ func Wrapf(err error, format string, a ...any) error {
 		return nil
 	}
 	a = append(a, err)
-	return fmt.Errorf(prependCaller(format+" %w", 2), a...)
+	return fmt.Errorf(prependCaller(format+" %w", 3), a...)
 }
 
-// TODO: transform this into using runtime.Callers(skip) and a skip sized slice.
 func prependCaller(text string, skip int) string {
-	pc, _, _, ok := runtime.Caller(skip)
-	if !ok {
+	var pcs [1]uintptr
+	if runtime.Callers(skip, pcs[:]) == 0 {
 		return ""
 	}
-	f := runtime.FuncForPC(pc)
+	f := runtime.FuncForPC(pcs[0])
 	if f == nil {
 		return ""
 	}

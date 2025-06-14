@@ -17,6 +17,7 @@ func dontHurtMe() error { return New("no more") }
 
 func ExampleUnwrapMeta() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
+	// Typically you would be using JSONHandler or something else easier to parse.
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
