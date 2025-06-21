@@ -1,3 +1,4 @@
+// Package test provides helper functions for testing.
 package test
 
 import "testing"
@@ -9,6 +10,7 @@ func splitMsgs(t testing.TB, msgs ...any) (string, []any) {
 
 	msg, ok := msgs[0].(string)
 	if !ok {
+		t.Helper()
 		t.Fatalf("first msg must be a string instead of a %T", msgs[0])
 	}
 

@@ -35,10 +35,21 @@ run: ## Run binary directly
 version: ## Print current version
 	@echo $(SHORTBUILDTAG)
 
+.PHONY: vulncheck
+vulncheck: ## Scan codebase for vulnerabilies
+	@go get -tool -modfile=tools.mod golang.org/x/vuln/cmd/govulncheck@latest
+	go tool -modfile=tools.mod golang.org/x/vuln/cmd/govulncheck -show version ./...
+
+.PHONY: lint
+lint: ## Run linter for code quality
+	go tool -modfile=tools.mod golangci-lint run
+
 COVERAGE_DIR ?= $(ROOT_DIR)/bin/coverage
 TEST_FLAGS ?= -failfast -count=1 -covermode=atomic
 .PHONY: test
 test: ## Run all tests
+	$(MAKE) vulncheck
+	$(MAKE) lint
 	@rm -rf $(COVERAGE_DIR)/* || true
 	@mkdir -p $(COVERAGE_DIR) || true
 	@go test $(TEST_FLAGS) -coverprofile=$(COVERAGE_DIR)/cov.out ./...

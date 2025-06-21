@@ -1,3 +1,4 @@
+// Package ptr provides utility functions for working with pointers.
 package ptr
 
 import (
@@ -13,9 +14,8 @@ func To[T any](s T) *T {
 func From[T any](p *T) (zero T) {
 	if p == nil {
 		return zero
-	} else {
-		return *p
 	}
+	return *p
 }
 
 // IsInterfaceNil checks if either an interface or it's underlying concrete value is nil.
@@ -27,8 +27,9 @@ func IsInterfaceNil(i any) bool {
 	switch reflect.TypeOf(i).Kind() {
 	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice:
 		return reflect.ValueOf(i).IsNil()
+	default:
+		return false
 	}
-	return false
 }
 
 // Or returns the first of its arguments that is not equal to the zero value.

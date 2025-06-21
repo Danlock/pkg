@@ -1,6 +1,11 @@
+// Package ioutil extends the stdlib ioutil
 package ioutil
 
-import "io"
+import (
+	"io"
+
+	"github.com/danlock/pkg/errors"
+)
 
 // TeeReadSeeker returns a [ReadSeeker] that writes to w what it reads from r.
 // All reads from r performed through it are matched with
@@ -21,12 +26,12 @@ func (t *teeReadSeeker) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(p)
 	if n > 0 {
 		if n, err := t.w.Write(p[:n]); err != nil {
-			return n, err
+			return n, errors.Wrapf(err, "Write failed")
 		}
 	}
 	return
 }
 
 func (t *teeReadSeeker) Seek(offset int64, whence int) (int64, error) {
-	return t.r.Seek(offset, whence)
+	return errors.WrapAndPass(t.r.Seek(offset, whence))
 }

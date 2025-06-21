@@ -1,3 +1,4 @@
+// Package retry provides retryable context-aware functions for code that needs to be robust against transient failures.
 package retry
 
 import (
@@ -26,9 +27,8 @@ var fibonacciDurations = [...]time.Duration{
 func FibonacciDelay(attempt uint) time.Duration {
 	if attempt < uint(len(fibonacciDurations)) {
 		return fibonacciDurations[attempt]
-	} else {
-		return fibonacciDurations[len(fibonacciDurations)-1]
 	}
+	return fibonacciDurations[len(fibonacciDurations)-1]
 }
 
 // WithBackoff repeatedly calls a function until the context finishes. The return value of the function is used to determine the backoff between retries.

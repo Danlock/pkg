@@ -7,7 +7,7 @@ import (
 )
 
 func TestUntilDone(t *testing.T) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, _ := context.WithTimeout(t.Context(), 10*time.Millisecond)
 
 	count := 0
 
@@ -24,11 +24,11 @@ func TestUntilDone(t *testing.T) {
 }
 
 func TestWithMaxAttempts(t *testing.T) {
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, _ := context.WithTimeout(t.Context(), 10*time.Millisecond)
 
 	count := 0
 
-	go WithMaxAttempts(ctx, 0, func(attempt uint) time.Duration { return 0 }, func() bool {
+	go WithMaxAttempts(ctx, 0, func(uint) time.Duration { return 0 }, func() bool {
 		count++
 		ctx, _ := context.WithTimeout(ctx, time.Millisecond)
 		<-ctx.Done()
@@ -41,7 +41,7 @@ func TestWithMaxAttempts(t *testing.T) {
 	}
 
 	count = 0
-	ctx, _ = context.WithTimeout(context.Background(), 10*time.Millisecond)
+	ctx, _ = context.WithTimeout(t.Context(), 10*time.Millisecond)
 
 	go WithMaxAttempts(ctx, 1, nil, func() bool {
 		count++

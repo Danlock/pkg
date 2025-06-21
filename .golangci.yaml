@@ -1,0 +1,48 @@
+version: "2"
+
+linters:
+  default: all
+  disable:
+    - depguard
+    - err113
+    - exhaustruct
+    - gochecknoglobals
+    - godot
+    - ireturn
+    - lll
+    - nlreturn
+    - nonamedreturns
+    - paralleltest
+    - testpackage
+    - varnamelen
+    - thelper
+    - wsl
+
+  exclusions:
+    generated: lax
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+        - funlen
+        - govet
+
+  settings:
+    funlen:
+      lines: -1
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    wrapcheck:
+      extra-ignore-sigs:
+        - .WrapMeta(
+        - .WrapMetaCtx(
+        - .ErrorfWithSkip(
+        - .WrapfWithSkip(
+        - errors.WrapAndPass[
+        - errors.WrapfAndPass[

@@ -1,3 +1,4 @@
+// Package main is an example entrypoint stub.
 package main
 
 import (
@@ -32,12 +33,10 @@ func main() {
 		dotenvLocation string
 	)
 
-	flag.StringVar(&dotenvLocation, "e", "./ops/.env", "Location of .env file with environment variables in KEY=VALUE format. .env file takes precendence over real env vars.")
-	flag.Parse()
-
 	// Example of using gotdotenv. Don't want to include this in this package's dependencies however.
 	// if err := godotenv.Overload(dotenvLocation); err != nil {
 	// 	log.Printf("No .env file found")
 	// }
-
+	flag.StringVar(&dotenvLocation, "e", "./ops/.env", "Location of .env file with environment variables in KEY=VALUE format. .env file takes precedence over real env vars.")
+	flag.Parse()
 }

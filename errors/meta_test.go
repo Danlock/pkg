@@ -15,9 +15,9 @@ import (
 
 func dontHurtMe() error { return New("no more") }
 
-func ExampleUnwrapMeta() {
+func Example() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
-	// Typically you would be using JSONHandler or something else easier to parse.
+	DefaultFileSlogKey = "file"
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
@@ -26,24 +26,26 @@ func ExampleUnwrapMeta() {
 			return a
 		},
 	})))
-	// This example shows how to use WrapMeta() to attach metadata to errors, and how to extract that metadata later.
+	// This example shows how to use WrapMeta() to attach metadata to errors.
 	err := dontHurtMe()
 	if err != nil {
 		// include some metadata about this failure
 		err = WrapMeta(err, slog.String("baby", "don't"), slog.String("hurt", "me"))
 	}
-	// Typically this error would then bubble up through a few more function cals.
-	// Eventually something must handle this error.
-	// For exanple, we can log it
+	// Typically this error would then bubble up through a few more function calls.
+	// Could be wrapped many more times, but eventually something handles this error.
+	// For exanple, it can be logged
 	if err != nil {
-		slog.LogAttrs(context.TODO(), slog.LevelWarn, "what is love", UnwrapMeta(err)...)
+		slog.Warn("what is love", "err", err)
 	}
 
+	// Pulling out metadata from a context is also possible, useful for attaching something like request IDs to any error from a request handler.
+	ctx := AddMetaToCtx(context.Background(), slog.Uint64("req_id", 42))
 	// Another easy way of wrapping errors with metadata known at the start of the function is to defer WrapMeta.
 	// This is possible since WrapMeta returns nil if the error is nil.
 
 	err = func(id uint64, parseMe string) (err error) {
-		defer func() { err = WrapMeta(err, slog.Uint64("id", id)) }()
+		defer func() { err = WrapMetaCtx(ctx, err, slog.Uint64("id", id)) }()
 		_, err = strconv.Atoi(parseMe)
 		if err != nil {
 			return Wrap(err)
@@ -52,24 +54,27 @@ func ExampleUnwrapMeta() {
 	}(0451, "trust me i'm numerical")
 
 	if err != nil {
-		slog.LogAttrs(context.TODO(), slog.LevelWarn, "parse failure", UnwrapMeta(err)...)
+		slog.LogAttrs(context.TODO(), slog.LevelWarn, "parse failure", slog.Any("err", err))
 	}
 
-	// printing an errors.WrapMeta error with something basic like fmt.Println doesn't include the metadata in the output.
+	// printing the error with something like fmt.Println won't include the metadata in the output.
 	fmt.Println(err)
+	err = Wrapf(err, "doubleWrap")
 	// unless you use %+v
 	fmt.Printf("%+v", err)
 
-	// Output: level=WARN msg="what is love" baby=don't hurt=me err="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" id=297 err="errors.ExampleUnwrapMeta.func2 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
-	// errors.ExampleUnwrapMeta.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.ExampleUnwrapMeta.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {id=297}
+	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:16 err.msg="errors.dontHurtMe no more"
+	// level=WARN msg="parse failure" err.id=297 err.req_id=42 err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:51 err.msg="errors.Example.func2 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
+	// errors.Example.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
+	// errors.Example doubleWrap errors.Example.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {id=297,req_id=42,file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:51}
 }
 
 func TestMeta(t *testing.T) {
 	attr1 := slog.String("key", "value")
 	attr2 := slog.Uint64("id", 1234)
 	attr3 := slog.Time("ts", time.Time{})
+
+	DefaultFileSlogKey = ""
 
 	oops := func() error {
 		return WrapMeta(New("oops"), attr1, attr2)
@@ -78,7 +83,10 @@ func TestMeta(t *testing.T) {
 	regErr := func(err error) error {
 		return fmt.Errorf("stdlib %w", err)
 	}
-	var err error = error(nil)
+
+	test.Equality(t, slog.KindString, UnwrapMetaMap(oops())[attr1.Key].Kind())
+
+	var err = error(nil)
 	tests := []struct {
 		name       string
 		err        error
@@ -118,8 +126,8 @@ func TestMeta(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			test.Equality(t, tt.wantErr, tt.err != nil, "WrapMeta() error = %+v, wantErr %v", tt.err, tt.wantErr)
 
-			if len(tt.wantMeta) > 0 && !reflect.DeepEqual(UnwrapMeta(tt.err), append(tt.wantMeta, slog.Any("err", tt.err))) {
-				t.Errorf("UnwrapMeta() got = %+v, wanted %+v", UnwrapMeta(tt.err), append(tt.wantMeta, slog.Any("err", tt.err)))
+			if len(tt.wantMeta) > 0 && !reflect.DeepEqual(UnwrapMeta(tt.err), tt.wantMeta) {
+				t.Errorf("UnwrapMeta() got = %+v, wanted %+v", UnwrapMeta(tt.err), tt.wantMeta)
 			}
 			if len(tt.wantBasic) > 0 {
 				test.Equality(t, tt.wantBasic, fmt.Sprintf("%v", tt.err), "fmt.Sprintf %%v")
