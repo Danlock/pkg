@@ -54,7 +54,12 @@ func WithMaxAttempts(ctx context.Context, maxAttempts uint, delay func(attempt u
 		select {
 		case <-ctx.Done():
 			return
-		case <-tmr.C:
+		default:
+			select {
+			case <-ctx.Done():
+				return
+			case <-tmr.C:
+			}
 		}
 
 		if fn() {

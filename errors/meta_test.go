@@ -13,9 +13,7 @@ import (
 	"github.com/danlock/pkg/test"
 )
 
-func dontHurtMe() error { return New("no more") }
-
-func Example() {
+func setup() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
 	DefaultFileSlogKey = "file"
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -26,6 +24,12 @@ func Example() {
 			return a
 		},
 	})))
+}
+
+func dontHurtMe() error { return New("no more") }
+
+func Example() {
+	setup()
 	// This example shows how to use WrapMeta() to attach metadata to errors.
 	err := dontHurtMe()
 	if err != nil {
@@ -63,10 +67,10 @@ func Example() {
 	// unless you use %+v
 	fmt.Printf("%+v", err)
 
-	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:16 err.msg="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" err.id=297 err.req_id=42 err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:51 err.msg="errors.Example.func2 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
-	// errors.Example.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.Example doubleWrap errors.Example.func2 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {id=297,req_id=42,file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:51}
+	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:29 err.msg="errors.dontHurtMe no more"
+	// level=WARN msg="parse failure" err.id=297 err.req_id=42 err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:55 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
+	// errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
+	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {id=297,req_id=42,file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:55}
 }
 
 func TestMeta(t *testing.T) {
