@@ -17,6 +17,7 @@ linters:
     - varnamelen
     - thelper
     - wsl
+    - gochecknoinits
 
   exclusions:
     generated: lax
@@ -26,6 +27,7 @@ linters:
         linters:
         - funlen
         - govet
+        - dupword
 
   settings:
     funlen:

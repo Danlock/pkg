@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +16,7 @@ import (
 func setup() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
 	DefaultFileSlogKey = "file"
+	ShouldSortUnwrapMeta = true
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
@@ -67,10 +68,10 @@ func Example() {
 	// unless you use %+v
 	fmt.Printf("%+v", err)
 
-	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=github.com/danlock/pkg/errors/meta_test.go:29 err.msg="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" err.user_id=297 err.req_id=42 err.file=github.com/danlock/pkg/errors/meta_test.go:55 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
+	// Output: level=WARN msg="what is love" err.baby=don't err.file=github.com/danlock/pkg/errors/meta_test.go:30 err.hurt=me err.msg="errors.dontHurtMe no more"
+	// level=WARN msg="parse failure" err.file=github.com/danlock/pkg/errors/meta_test.go:56 err.req_id=42 err.user_id=297 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
 	// errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {user_id=297,req_id=42,file=github.com/danlock/pkg/errors/meta_test.go:55}
+	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {file=github.com/danlock/pkg/errors/meta_test.go:56,req_id=42,user_id=297}
 }
 
 func TestMeta(t *testing.T) {
@@ -93,19 +94,17 @@ func TestMeta(t *testing.T) {
 
 	var err = error(nil)
 	tests := []struct {
-		name       string
-		err        error
-		wantErr    bool
-		wantMeta   []slog.Attr
-		wantBasic  string
-		wantExpand string
+		name      string
+		err       error
+		wantErr   bool
+		wantMeta  []slog.Attr
+		wantBasic string
 	}{
 		{
 			"zilch",
 			WrapMeta(err, attr1, attr2),
 			false,
 			nil,
-			"",
 			"",
 		},
 		{
@@ -114,7 +113,6 @@ func TestMeta(t *testing.T) {
 			true,
 			[]slog.Attr{attr1, attr2},
 			"errors.TestMeta.func1 oops",
-			"errors.TestMeta.func1 oops {key=value,id=1234}",
 		},
 		{
 			"triple decker",
@@ -124,33 +122,36 @@ func TestMeta(t *testing.T) {
 			true,
 			[]slog.Attr{attr3, attr1, attr2},
 			"stdlib errors.TestMeta.func1 oops",
-			"stdlib errors.TestMeta.func1 oops {ts=0001-01-01 00:00:00 +0000 UTC,key=value,id=1234}",
 		},
 		{
 			"the fat bastard",
 			func() error {
-				return Wrap(Join(nil, WrapMeta(regErr(oops()), attr3), nil, WrapMeta(New("please stop"), attr4)))
+				return Wrap(Join(Wrap(Join(WrapMeta(nil), WrapMeta(regErr(oops()), attr3), Wrap(nil), WrapMeta(New("please stop"), attr4))), WrapMeta(New("No dupes"), attr1)))
 			}(),
 			true,
 			[]slog.Attr{attr3, attr1, attr2, attr4},
-			"errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop",
-			"errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop {ts=0001-01-01 00:00:00 +0000 UTC,key=value,id=1234,bit=true}",
+			"errors.TestMeta.func4 errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop\nerrors.TestMeta.func4 No dupes",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			test.Equality(t, tt.wantErr, tt.err != nil, "WrapMeta() error = %+v, wantErr %v", tt.err, tt.wantErr)
 
-			if len(tt.wantMeta) > 0 && !reflect.DeepEqual(UnwrapMeta(tt.err), tt.wantMeta) {
-				t.Errorf("UnwrapMeta() got = %+v, wanted %+v", UnwrapMeta(tt.err), tt.wantMeta)
+			if len(tt.wantMeta) > 0 {
+				metaMap := UnwrapMetaMap(tt.err)
+				expandedStr := fmt.Sprintf("%+v", tt.err)
+				for _, attr := range tt.wantMeta {
+					attrStr := attr.String()
+					test.Truth(t, strings.Contains(expandedStr, attrStr), "expanded error string %s didn't contain %s", expandedStr, attrStr)
+
+					v, ok := metaMap[attr.Key]
+					test.Truth(t, ok && v.Equal(attr.Value), "err metadata %+v missing attr %s", metaMap, attrStr)
+				}
 			}
 			if len(tt.wantBasic) > 0 {
 				test.Equality(t, tt.wantBasic, fmt.Sprintf("%v", tt.err), "fmt.Sprintf %%v")
 				test.Equality(t, tt.wantBasic, fmt.Sprintf("%s", tt.err), "fmt.Sprintf %%s")
 				test.Equality(t, tt.wantBasic, fmt.Sprint(tt.err), "fmt.Sprint")
-			}
-			if len(tt.wantExpand) > 0 {
-				test.Equality(t, tt.wantExpand, fmt.Sprintf("%+v", tt.err), "fmt.Sprintf %%+v")
 			}
 		})
 	}

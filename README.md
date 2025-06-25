@@ -1,6 +1,6 @@
 # pkg
 
-![Coverage](https://img.shields.io/badge/Coverage-16.8%25-red)
+![Coverage](https://img.shields.io/badge/Coverage-50.9%25-yellow)
 [![Go Report Card](https://goreportcard.com/badge/github.com/danlock/pkg)](https://goreportcard.com/report/github.com/danlock/pkg)
 [![Go Reference](https://pkg.go.dev/badge/github.com/danlock/pkg.svg)](https://pkg.go.dev/github.com/danlock/pkg)
 

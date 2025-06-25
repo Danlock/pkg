@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"path"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strings"
 )
 
@@ -18,7 +20,12 @@ var DefaultFileSlogKey = "file"
 // DefaultFilePackagePrefix trims the file:line path of the build location using this package name.
 // With Go modules it's updated automatically, but without Go modules it defaults to github.com/ and may need to be updated for your project.
 // If set to "" the file metadata is not trimmed at all.
+//
+// As an example by default we trim /home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:30 down to github.com/danlock/pkg/errors/meta_test.go:30.
 var DefaultFilePackagePrefix = "github.com/"
+
+// ShouldSortUnwrapMeta controls whether UnwrapMeta, and therefore the slog GroupValue log output, will be sorted by key for determinism.
+var ShouldSortUnwrapMeta = false
 
 func init() {
 	// Automatically configure DefaultFilePackagePrefix with Go modules.
@@ -135,48 +142,61 @@ func appendFileToMeta(meta []slog.Attr, err error, skip int, frame runtime.Frame
 	return append(meta, slog.String(DefaultFileSlogKey, fmt.Sprintf("%s:%d", frame.File, frame.Line)))
 }
 
-// appendMetaFromErr appends err's metadata onto the given slice.
-func appendMetaFromErr(err error, meta []slog.Attr) []slog.Attr {
-	// TODO: errors.As only returns the first error in an errors.Join error, so we handle those recursively beforehand
-	// This is unfortunately duplicating the metadata , so come up with a better way
-	// if jerr, ok := Into[joinedErrors](err); ok {
-	// 	for _, e := range jerr.Unwrap() {
-	// 		meta = appendMetaFromErr(e, meta)
-	// 	}
-	// }
+type joinedError interface {
+	Unwrap() []error
+	Error() string
+}
+
+// updateMetaMapFromErr adds err's metadata into the given map.
+// This deduplicates metadata across the error chain, which allows multiple deferred WrapMetaCtxAfter calls
+// in a single function for example, which would usually duplicate the fields added to the context.
+func updateMetaMapFromErr(err error, meta map[string]slog.Value) {
+	// errors.As only returns the first error in an errors.Join error, so we handle those recursively beforehand
+	if jerr, ok := Into[joinedError](err); ok {
+		for _, e := range jerr.Unwrap() {
+			updateMetaMapFromErr(e, meta)
+		}
+	}
+	// errors.As will also end up grabbing one of the joined errors, so we output to a map to avoid duplication.
 	var merr metaError
 	for errors.As(err, &merr) {
-		meta = append(meta, merr.meta...)
+		for _, attr := range merr.meta {
+			meta[attr.Key] = attr.Value
+		}
 		err = errors.Unwrap(merr)
 	}
-	return meta
 }
 
 // UnwrapMeta pulls metadata from every error in the chain for structured logging purposes.
 // Errors in this package implement slog.LogValuer and automatically include the metadata when used with slog.Log.
-// This function is mainly exposed for use with other loggers that don't support structured logging from the stdlib.
-func UnwrapMeta(err error) (meta []slog.Attr) {
-	return appendMetaFromErr(err, meta)
+// This function is mainly exposed for use with loggers other than log/slog.
+// Duplicate keys across the error chain are not supported.
+// As this function internally uses a map, the returned slice order is non deterministic unless ShouldSortUnwrapMeta true.
+func UnwrapMeta(err error) []slog.Attr {
+	metaMap := make(map[string]slog.Value)
+	updateMetaMapFromErr(err, metaMap)
+	meta := make([]slog.Attr, 0, len(metaMap))
+	for k, v := range metaMap {
+		meta = append(meta, slog.Attr{Key: k, Value: v})
+	}
+	if ShouldSortUnwrapMeta {
+		slices.SortFunc(meta, func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) })
+	}
+	return meta
 }
 
 // UnwrapMetaMap returns a map around an error's metadata.
 // If the error lacks metadata an empty map is returned.
 //
 // Structured errors can be introspected and handled differently as needed.
-// As this is a map, duplicate keys across the error chain are not allowed.
-// If that is an issue for you, use UnwrapMeta instead.
+// Duplicate keys across the error chain are not allowed.
 //
 // Seriously consider a sentinel error or custom error type before reaching for this.
 // For example open source libraries would be better off publicly exposing custom error types for type safety.
 //
 // Using const keys is strongly recommended to avoid typos.
 func UnwrapMetaMap(err error) map[string]slog.Value {
-	// TODO: a more efficient implementation that avoids the intermediate slice allocation,
-	// probably based around an UnwrapMetaMapInto function.
-	attrs := UnwrapMeta(err)
-	meta := make(map[string]slog.Value, len(attrs))
-	for _, attr := range attrs {
-		meta[attr.Key] = attr.Value
-	}
+	meta := make(map[string]slog.Value)
+	updateMetaMapFromErr(err, meta)
 	return meta
 }
