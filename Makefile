@@ -74,7 +74,7 @@ PKGNAME = github.com/danlock/pkg
 .PHONY: update-godocs
 update-godocs: ## Update pkg.go.dev documentation
 	@cd ../zootpooch; \
-	GOPROXY=https://proxy.golang.org go get -u $(PKGNAME); \
+	GOPROXY=https://proxy.golang.org go get -u $(PKGNAME)@$(SHORTBUILDTAG); \
 	go mod tidy
 
 .PHONY: release
