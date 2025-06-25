@@ -45,11 +45,11 @@ func Example() {
 
 	// Pulling out metadata from a context is also possible, useful for attaching something like request IDs to any error from a request handler.
 	ctx := AddMetaToCtx(context.Background(), slog.Uint64("req_id", 42))
-	// Another easy way of wrapping errors with metadata known at the start of the function is to defer WrapMeta.
-	// This is possible since WrapMeta returns nil if the error is nil.
+	// WrapMetaCtxAfter is an simple and maintainable way to add context metadata to any error returned from a function.
+	// Wrap should be called as close to the error generating function as possible for accurate file and line info though.
 
 	err = func(id uint64, parseMe string) (err error) {
-		defer func() { err = WrapMetaCtx(ctx, err, slog.Uint64("id", id)) }()
+		defer WrapMetaCtxAfter(ctx, &err, slog.Uint64("user_id", id))
 		_, err = strconv.Atoi(parseMe)
 		if err != nil {
 			return Wrap(err)
@@ -67,16 +67,17 @@ func Example() {
 	// unless you use %+v
 	fmt.Printf("%+v", err)
 
-	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:29 err.msg="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" err.id=297 err.req_id=42 err.file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:55 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
+	// Output: level=WARN msg="what is love" err.baby=don't err.hurt=me err.file=github.com/danlock/pkg/errors/meta_test.go:29 err.msg="errors.dontHurtMe no more"
+	// level=WARN msg="parse failure" err.user_id=297 err.req_id=42 err.file=github.com/danlock/pkg/errors/meta_test.go:55 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
 	// errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {id=297,req_id=42,file=/home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:55}
+	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {user_id=297,req_id=42,file=github.com/danlock/pkg/errors/meta_test.go:55}
 }
 
 func TestMeta(t *testing.T) {
 	attr1 := slog.String("key", "value")
 	attr2 := slog.Uint64("id", 1234)
 	attr3 := slog.Time("ts", time.Time{})
+	attr4 := slog.Bool("bit", true)
 
 	DefaultFileSlogKey = ""
 
@@ -124,6 +125,16 @@ func TestMeta(t *testing.T) {
 			[]slog.Attr{attr3, attr1, attr2},
 			"stdlib errors.TestMeta.func1 oops",
 			"stdlib errors.TestMeta.func1 oops {ts=0001-01-01 00:00:00 +0000 UTC,key=value,id=1234}",
+		},
+		{
+			"the fat bastard",
+			func() error {
+				return Wrap(Join(nil, WrapMeta(regErr(oops()), attr3), nil, WrapMeta(New("please stop"), attr4)))
+			}(),
+			true,
+			[]slog.Attr{attr3, attr1, attr2, attr4},
+			"errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop",
+			"errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop {ts=0001-01-01 00:00:00 +0000 UTC,key=value,id=1234,bit=true}",
 		},
 	}
 	for _, tt := range tests {

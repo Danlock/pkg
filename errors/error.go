@@ -6,9 +6,6 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"path"
-	"runtime"
 )
 
 // caller is the number of stack frames to skip when determining the caller's package.func.
@@ -26,12 +23,7 @@ func Errorf(format string, a ...any) error { return ErrorfWithSkip(caller, forma
 // It also includes the file and line info of it's caller.
 func ErrorfWithSkip(skip int, format string, a ...any) error {
 	frame := callerFunc(skip)
-	var meta []slog.Attr
-	if DefaultFileSlogKey != "" {
-		meta = []slog.Attr{
-			slog.String(DefaultFileSlogKey, fmt.Sprintf("%s:%d", frame.File, frame.Line))}
-	}
-	return metaError{meta: meta,
+	return metaError{meta: appendFileToMeta(nil, nil, 0, frame),
 		error: fmt.Errorf(prependCaller(format, frame), a...)}
 }
 
@@ -63,14 +55,6 @@ func WrapfWithSkip(err error, skip int, format string, a ...any) error {
 	if err == nil {
 		return nil
 	}
-	frame := callerFunc(skip)
-	var meta []slog.Attr
-	if DefaultFileSlogKey != "" {
-		if _, exist := Into[metaError](err); !exist {
-			meta = []slog.Attr{
-				slog.String(DefaultFileSlogKey, fmt.Sprintf("%s:%d", frame.File, frame.Line))}
-		}
-	}
 
 	if format == "" {
 		format = "%w"
@@ -78,34 +62,9 @@ func WrapfWithSkip(err error, skip int, format string, a ...any) error {
 		format += " %w"
 	}
 
-	return metaError{meta: meta,
+	frame := callerFunc(skip)
+	return metaError{meta: appendFileToMeta(nil, err, 0, frame),
 		error: fmt.Errorf(prependCaller(format, frame), append(a, err)...)}
-}
-
-func callerFunc(skip int) runtime.Frame {
-	var pcs [1]uintptr
-	if runtime.Callers(skip, pcs[:]) == 0 {
-		return runtime.Frame{}
-	}
-	frames := runtime.CallersFrames(pcs[:])
-	if frames == nil {
-		return runtime.Frame{}
-	}
-	frame, _ := frames.Next()
-	return frame
-}
-
-func prependCaller(text string, f runtime.Frame) string {
-	if f.Function == "" {
-		return text
-	}
-	// runtime.Frame.Function gives back something like github.com/danlock/pkg.funcName.
-	// with just the package name and the func name, nested errors look more readable by default.
-	// We also avoid the ugly giant stack trace cluttering logs and looking similar to panics.
-	// Now that the file:line of the original error is also within the metadata,
-	// trimming the fat makes errors easier to parse at a glance.
-	_, fName := path.Split(f.Function)
-	return fmt.Sprint(fName, " ", text)
 }
 
 // Into finds the first error in err's chain that matches target type T, and if so, returns it.

@@ -26,7 +26,7 @@ func FailOnError(t testing.TB, err error, msgs ...any) {
 	msg, args := splitMsgs(t, msgs...)
 	if err != nil {
 		t.Helper()
-		t.Errorf(msg+" err='%+v'", append(args, err)...)
+		t.Errorf(msg+`|err="%+v"`, append(args, err)...)
 	}
 }
 
@@ -35,7 +35,7 @@ func AbortOnError(t testing.TB, err error, msgs ...any) {
 	msg, args := splitMsgs(t, msgs...)
 	if err != nil {
 		t.Helper()
-		t.Fatalf(msg+" err='%+v'", append(args, err)...)
+		t.Fatalf(msg+`|err="%+v"`, append(args, err)...)
 	}
 }
 
@@ -45,7 +45,7 @@ func AbortOnErrorVal[T any](t testing.TB, msgs ...any) func(val T, err error) T 
 	return func(val T, err error) T {
 		if err != nil {
 			t.Helper()
-			t.Fatalf(msg+" err='%+v'", append(args, err)...)
+			t.Fatalf(msg+`|err="%+v"`, append(args, err)...)
 		}
 		return val
 	}
@@ -57,7 +57,7 @@ func AbortOnErrorValues[T, U any](t testing.TB, msgs ...any) func(val1 T, val2 U
 	return func(val1 T, val2 U, err error) (T, U) {
 		if err != nil {
 			t.Helper()
-			t.Fatalf(msg+" err='%+v'", append(args, err)...)
+			t.Fatalf(msg+`|err="%+v"`, append(args, err)...)
 		}
 		return val1, val2
 	}
@@ -68,7 +68,7 @@ func Equality[T comparable](t testing.TB, wanted, actual T, msgs ...any) {
 	msg, args := splitMsgs(t, msgs...)
 	if wanted != actual {
 		t.Helper()
-		t.Errorf(msg+" {wanted=%v actual=%v}", append(args, wanted, actual)...)
+		t.Errorf(msg+`|wanted="%v",actual="%v"`, append(args, wanted, actual)...)
 	}
 }
 
@@ -77,7 +77,7 @@ func EqualityOrAbort[T comparable](t testing.TB, wanted, actual T, msgs ...any) 
 	msg, args := splitMsgs(t, msgs...)
 	if wanted != actual {
 		t.Helper()
-		t.Fatalf(msg+" {wanted=%v actual=%v}", append(args, wanted, actual)...)
+		t.Fatalf(msg+`|wanted="%v",actual="%v"`, append(args, wanted, actual)...)
 	}
 }
 

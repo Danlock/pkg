@@ -73,7 +73,7 @@ PKGNAME = github.com/danlock/pkg
 # pkg.go.dev documentation can be updated via go get updating the google proxy from another package
 .PHONY: update-godocs
 update-godocs: ## Update pkg.go.dev documentation
-	@cd ../rmq; \
+	@cd ../zootpooch; \
 	GOPROXY=https://proxy.golang.org go get -u $(PKGNAME); \
 	go mod tidy
 
