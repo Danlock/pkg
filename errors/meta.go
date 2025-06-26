@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
 	"path"
 	"runtime"
@@ -39,19 +40,30 @@ func init() {
 	}
 }
 
-// metaError is a structured stdlib Go error using slog.Attr for metadata.
+// MetaError is a structured stdlib Go error using slog.Attr for metadata.
 // If printed with %+v it will also include the metadata, but by default only the error message is shown.
 // It will also include the file:line information from the first error in the chain under the DefaultFileSlogKey.
 // Meant for use with log/slog where everything converts to a slog.GroupValue when logged.
+type MetaError interface {
+	// Meta returns the metadata associated with this error.
+	Meta() iter.Seq[slog.Attr]
+	LogValue() slog.Value
+	Unwrap() error
+	Error() string
+}
+
+var _ = MetaError(metaError{})
+var _ = slog.LogValuer(metaError{})
+
 type metaError struct {
 	error
+	//TODO: should meta be a slog.Record instead to take advantage of the size optimization within?
 	meta []slog.Attr
 }
 
-// UnwrapMeta calls UnwrapMeta on itself, for external packages that need to access this error chain's metadata without relying on this package directly.
-func (e metaError) UnwrapMeta() []slog.Attr { return UnwrapMeta(e) }
-func (e metaError) Unwrap() error           { return e.error }
-func (e metaError) String() string          { return e.Error() }
+func (e metaError) Meta() iter.Seq[slog.Attr] { return slices.Values(e.meta) }
+func (e metaError) Unwrap() error             { return e.error }
+func (e metaError) String() string            { return e.Error() }
 
 // LogValue logs the error with the file:line information and any existing metadata.
 func (e metaError) LogValue() slog.Value {
@@ -142,25 +154,21 @@ func appendFileToMeta(meta []slog.Attr, err error, skip int, frame runtime.Frame
 	return append(meta, slog.String(DefaultFileSlogKey, fmt.Sprintf("%s:%d", frame.File, frame.Line)))
 }
 
-type joinedError interface {
-	Unwrap() []error
-	Error() string
-}
-
 // updateMetaMapFromErr adds err's metadata into the given map.
 // This deduplicates metadata across the error chain, which allows multiple deferred WrapMetaCtxAfter calls
 // in a single function for example, which would usually duplicate the fields added to the context.
 func updateMetaMapFromErr(err error, meta map[string]slog.Value) {
 	// errors.As only returns the first error in an errors.Join error, so we handle those recursively beforehand
-	if jerr, ok := Into[joinedError](err); ok {
+	jerr, ok := Into[interface{ Unwrap() []error }](err)
+	if ok {
 		for _, e := range jerr.Unwrap() {
 			updateMetaMapFromErr(e, meta)
 		}
 	}
 	// errors.As will also end up grabbing one of the joined errors, so we output to a map to avoid duplication.
-	var merr metaError
+	var merr MetaError
 	for errors.As(err, &merr) {
-		for _, attr := range merr.meta {
+		for attr := range merr.Meta() {
 			meta[attr.Key] = attr.Value
 		}
 		err = errors.Unwrap(merr)
@@ -169,12 +177,10 @@ func updateMetaMapFromErr(err error, meta map[string]slog.Value) {
 
 // UnwrapMeta pulls metadata from every error in the chain for structured logging purposes.
 // Errors in this package implement slog.LogValuer and automatically include the metadata when used with slog.Log.
-// This function is mainly exposed for use with loggers other than log/slog.
 // Duplicate keys across the error chain are not supported.
 // As this function internally uses a map, the returned slice order is non deterministic unless ShouldSortUnwrapMeta true.
 func UnwrapMeta(err error) []slog.Attr {
-	metaMap := make(map[string]slog.Value)
-	updateMetaMapFromErr(err, metaMap)
+	metaMap := UnwrapMetaMap(err)
 	meta := make([]slog.Attr, 0, len(metaMap))
 	for k, v := range metaMap {
 		meta = append(meta, slog.Attr{Key: k, Value: v})

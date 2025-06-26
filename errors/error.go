@@ -30,9 +30,12 @@ func ErrorfWithSkip(skip int, format string, a ...any) error {
 // WrapAndPass wraps a typical error func with Wrap and passes the value through unchanged.
 func WrapAndPass[T any](val T, err error) (T, error) { return val, WrapfWithSkip(err, caller, "") }
 
-// WrapfAndPass wraps a typical error func with Wrapf and passes the value through unchanged.
-func WrapfAndPass[T any](val T, err error, format string, a ...any) (T, error) {
-	return val, WrapfWithSkip(err, caller, format, a...)
+// WrapfAndPass wraps a typical error func with a Wrapf function that passes the value through unchanged.
+// WrapMetaCtxAfter contains example usage.
+func WrapfAndPass[T any](val T, err error) func(format string, a ...any) (T, error) {
+	return func(format string, a ...any) (T, error) {
+		return val, WrapfWithSkip(err, caller+1, format, a...)
+	}
 }
 
 // Wrap wraps an error with the caller's package.func prepended.
@@ -69,7 +72,7 @@ func WrapfWithSkip(err error, skip int, format string, a ...any) error {
 
 // Into finds the first error in err's chain that matches target type T, and if so, returns it.
 // Into is a type-safe alternative to As.
-func Into[T error](err error) (val T, ok bool) {
+func Into[T any](err error) (val T, ok bool) {
 	return val, errors.As(err, &val)
 }
 

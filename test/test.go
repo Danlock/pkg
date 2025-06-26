@@ -40,26 +40,14 @@ func AbortOnError(t testing.TB, err error, msgs ...any) {
 }
 
 // AbortOnErrorVal calls t.Fatalf if err is not nil with the error and any additional args passed in.
-func AbortOnErrorVal[T any](t testing.TB, msgs ...any) func(val T, err error) T {
-	msg, args := splitMsgs(t, msgs...)
-	return func(val T, err error) T {
+func AbortOnErrorVal[T any](val T, err error) func(t testing.TB, msgs ...any) T {
+	return func(t testing.TB, msgs ...any) T {
 		if err != nil {
 			t.Helper()
+			msg, args := splitMsgs(t, msgs...)
 			t.Fatalf(msg+`|err="%+v"`, append(args, err)...)
 		}
 		return val
-	}
-}
-
-// AbortOnErrorValues calls t.Fatalf if err is not nil with the error and any additional args passed in.
-func AbortOnErrorValues[T, U any](t testing.TB, msgs ...any) func(val1 T, val2 U, err error) (T, U) {
-	msg, args := splitMsgs(t, msgs...)
-	return func(val1 T, val2 U, err error) (T, U) {
-		if err != nil {
-			t.Helper()
-			t.Fatalf(msg+`|err="%+v"`, append(args, err)...)
-		}
-		return val1, val2
 	}
 }
 

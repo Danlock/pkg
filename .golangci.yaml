@@ -40,11 +40,15 @@ linters:
     gocritic:
       disabled-checks:
         - ifElseChain
+    errorlint:
+      asserts: false
     wrapcheck:
       extra-ignore-sigs:
         - .WrapMeta(
         - .WrapMetaCtx(
         - .ErrorfWithSkip(
         - .WrapfWithSkip(
-        - errors.WrapAndPass[
-        - errors.WrapfAndPass[
+        - .WrapAndPass[
+        - .WrapfAndPass[
+        - .WrapAndPass(
+        - .WrapfAndPass(

@@ -20,7 +20,7 @@ func TestUntilDone(t *testing.T) {
 	})
 
 	<-ctx.Done()
-	test.Equality(t, 10, count, "unexpected count == %d", count)
+	test.Equality(t, 10, count, "unexpected count")
 }
 
 func TestWithMaxAttempts(t *testing.T) {
@@ -35,7 +35,7 @@ func TestWithMaxAttempts(t *testing.T) {
 	})
 
 	<-ctx.Done()
-	test.Equality(t, 4, count, "unexpected count == %d", count)
+	test.Equality(t, 4, count, "unexpected count")
 
 	count = 0
 	ctx, _ = context.WithTimeout(t.Context(), 10*time.Millisecond)
@@ -48,5 +48,5 @@ func TestWithMaxAttempts(t *testing.T) {
 	})
 
 	<-ctx.Done()
-	test.Equality(t, 1, count, "unexpected count == %d", count)
+	test.Equality(t, 1, count, "unexpected count")
 }

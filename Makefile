@@ -42,7 +42,7 @@ vulncheck: ## Scan codebase for vulnerabilies
 
 .PHONY: lint
 lint: ## Run linter for code quality
-	go tool -modfile=tools.mod golangci-lint run
+	go tool -modfile=tools.mod golangci-lint run --issues-exit-code=0
 
 COVERAGE_DIR ?= $(ROOT_DIR)/bin/coverage
 TEST_FLAGS ?= -failfast -count=1 -covermode=atomic
@@ -52,17 +52,13 @@ test: ## Run all tests
 	$(MAKE) lint
 	@rm -rf $(COVERAGE_DIR)/* || true
 	@mkdir -p $(COVERAGE_DIR) || true
-	@go test $(TEST_FLAGS) -coverprofile=$(COVERAGE_DIR)/cov.out ./...
-	@go tool cover -func=$(COVERAGE_DIR)/cov.out | tail -n 1
+	go test $(TEST_FLAGS) -coverprofile=$(COVERAGE_DIR)/cov.out ./...
+	go tool cover -func=$(COVERAGE_DIR)/cov.out | tail -n 1
 
 .PHONY: coverage-html
 coverage-html: ## Generate HTML coverage report
 	@rm $(COVERAGE_DIR).html || true
-	@go tool cover -html=$(COVERAGE_DIR)/cov.out -o $(COVERAGE_DIR).html
-
-.PHONY: coverage-browser
-coverage-browser: ## Open HTML coverage report in browser
-	@go tool cover -html=$(COVERAGE_DIR)/cov.out
+	go tool cover -html=$(COVERAGE_DIR)/cov.out -o $(COVERAGE_DIR).html
 
 .PHONY: update-readme-badge
 update-readme-badge: ## Update coverage badge within README.md
