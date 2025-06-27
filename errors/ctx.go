@@ -38,7 +38,9 @@ func maybeWrapMetaError(err error, meta []slog.Attr) error {
 	if len(meta) == 0 && isMeta {
 		return err
 	}
-	return metaError{error: err, meta: meta}
+	merr := metaError{error: err}
+	merr.r.AddAttrs(meta...)
+	return merr
 }
 
 // AddMetaToCtx adds metadata to the context that will be added to the error once WrapMetaCtx is called.
@@ -58,10 +60,15 @@ func AddMetaToCtx(ctx context.Context, meta ...slog.Attr) context.Context {
 
 // WrapMetaCtx wraps an error with metadata for structured logging.
 // Similar to github.com/pkg/errors.Wrap and unlike fmt.Errorf it returns nil if err is nil.
+//
 // If not wrapping an error from this Go package it also includes the file and line info of it's caller.
 // AddMetaToCtx adds metadata to the ctx which will be added to the error, if the context is set.
+//
 // If 0 metadata will be included with the error, i.e both context is nil and meta is empty,
 // the original error will be returned to avoid bloating the error chain.
+//
+// Note that the slog output contains 2 keys by default, DefaultSourceSlogKey and DefaultMsgSlogKey,
+// which use slog's standard "source" and "msg". Duplicate keys are not supported.
 func WrapMetaCtx(ctx context.Context, err error, meta ...slog.Attr) error {
 	if err == nil {
 		return nil
@@ -94,7 +101,7 @@ func WrapMetaCtx(ctx context.Context, err error, meta ...slog.Attr) error {
 //	}
 //
 // The output of slogging this function's failure with slog.Errorf("db error", "err", err):
-// 2025/06/26 15:22:57 ERROR db error err.device_id=9 err.deleted_props=5 err.file=github.com/danlock/pkg/errors/ctx.go:76 err.msg="errors.DeleteDevice tx.Exec failed"
+// 2025/06/26 15:22:57 ERROR db error err.msg="errors.DeleteDevice tx.Exec failed" err.device_id=9 err.deleted_props=5 err.source=github.com/danlock/pkg/errors/ctx.go:76
 //
 // Using defer WrapMetaCtxAfter throughout our code makes it more maintainable by adding metadata when it's available, only if the error exists.
 // Consider using WrapMetaCtxAfter after any error returning function with a context.Context parameter.

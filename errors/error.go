@@ -23,8 +23,9 @@ func Errorf(format string, a ...any) error { return ErrorfWithSkip(caller, forma
 // It also includes the file and line info of it's caller.
 func ErrorfWithSkip(skip int, format string, a ...any) error {
 	frame := callerFunc(skip)
-	return metaError{meta: appendFileToMeta(nil, nil, 0, frame),
-		error: fmt.Errorf(prependCaller(format, frame), a...)}
+	merr := metaError{error: fmt.Errorf(prependCaller(format, frame), a...)}
+	merr.r.AddAttrs(appendFileToMeta(nil, nil, 0, frame)...)
+	return merr
 }
 
 // WrapAndPass wraps a typical error func with Wrap and passes the value through unchanged.
@@ -34,7 +35,7 @@ func WrapAndPass[T any](val T, err error) (T, error) { return val, WrapfWithSkip
 // WrapMetaCtxAfter contains example usage.
 func WrapfAndPass[T any](val T, err error) func(format string, a ...any) (T, error) {
 	return func(format string, a ...any) (T, error) {
-		return val, WrapfWithSkip(err, caller+1, format, a...)
+		return val, WrapfWithSkip(err, caller, format, a...)
 	}
 }
 
@@ -66,8 +67,29 @@ func WrapfWithSkip(err error, skip int, format string, a ...any) error {
 	}
 
 	frame := callerFunc(skip)
-	return metaError{meta: appendFileToMeta(nil, err, 0, frame),
-		error: fmt.Errorf(prependCaller(format, frame), append(a, err)...)}
+	merr := metaError{error: fmt.Errorf(prependCaller(format, frame), append(a, err)...)}
+	merr.r.AddAttrs(appendFileToMeta(nil, err, 0, frame)...)
+	return merr
+}
+
+// JoinAfter uses error.Join to join deferred errors together.
+// JoinAfter set's errPtr to nil if *errPtr and each errFuncs return nil
+// errPtr must point to the named error return value from the calling function.
+func JoinAfter(errPtr *error, errFuncs ...func() error) {
+	if errPtr == nil {
+		panic("JoinAfter errPtr must point at the caller function's named return error variable")
+	}
+
+	errs := make([]error, 0, len(errFuncs)+1)
+	for _, errFunc := range errFuncs {
+		if errFunc != nil {
+			errs = append(errs, errFunc())
+		}
+	}
+
+	errs = append(errs, *errPtr)
+	// Right now this just returns stdlib errors, but should we wrap it in a metaError if errPtr isn't one?
+	*errPtr = errors.Join(errs...)
 }
 
 // Into finds the first error in err's chain that matches target type T, and if so, returns it.

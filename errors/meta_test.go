@@ -2,10 +2,12 @@ package errors
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"os"
-	"strconv"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +17,7 @@ import (
 
 func setup() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
-	DefaultFileSlogKey = "file"
+	DefaultSourceSlogKey = slog.SourceKey
 	ShouldSortUnwrapMeta = true
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
@@ -27,15 +29,15 @@ func setup() {
 	})))
 }
 
-func dontHurtMe() error { return New("no more") }
+func baby() error { return New("don't hurt me") }
 
 func Example() {
 	setup()
-	// This example shows how to use WrapMeta() to attach metadata to errors.
-	err := dontHurtMe()
+	// This example showcases how to use structured errors alongside log/slog.
+	err := baby()
 	if err != nil {
 		// include some metadata about this failure
-		err = WrapMeta(err, slog.String("baby", "don't"), slog.String("hurt", "me"))
+		err = WrapMeta(err, slog.String("don't", "hurt me"), slog.String("no", "more"))
 	}
 	// Typically this error would then bubble up through a few more function calls.
 	// Could be wrapped many more times, but eventually something handles this error.
@@ -43,20 +45,38 @@ func Example() {
 	if err != nil {
 		slog.Warn("what is love", "err", err)
 	}
-
 	// Pulling out metadata from a context is also possible, useful for attaching something like request IDs to any error from a request handler.
-	ctx := AddMetaToCtx(context.Background(), slog.Uint64("req_id", 42))
+	ctx := AddMetaToCtx(context.Background(), slog.Uint64("answer", 42))
 	// WrapMetaCtxAfter is an simple and maintainable way to add context metadata to any error returned from a function.
-	// Wrap should be called as close to the error generating function as possible for accurate file and line info though.
+	// Here is a small function that hashes and writes some random bytes to showcase various error helper functions from this package.
+	_, err = func(ctx context.Context, file string) (_ int, err error) {
+		dest := path.Join(os.TempDir(), "hashed.brown")
+		defer WrapMetaCtxAfter(ctx, &err, slog.String("input", file), slog.String("output", dest))
+		fileBytes := make([]byte, 10)
+		// Scrounge up some bytes
+		bytesRead, err := rand.NewChaCha8([32]byte{}).Read(fileBytes)
+		if err != nil {
+			return 0, Wrapf(err, "failed to generate bytes")
+		}
+		// Ensure we track how much we read in case that's relevant later
+		defer WrapMetaCtxAfter(ctx, &err, slog.Int("bytes_read", bytesRead))
 
-	err = func(id uint64, parseMe string) (err error) {
-		defer WrapMetaCtxAfter(ctx, &err, slog.Uint64("user_id", id))
-		_, err = strconv.Atoi(parseMe)
-		return Wrap(err)
-	}(0451, "trust me i'm numerical")
+		hash := sha256.Sum256(fileBytes)
+		// Open this file for writing... or reading... whatever.
+		f, err := os.OpenFile(path.Clean(dest), os.O_RDONLY, 0600)
+		if err != nil {
+			return 0, Wrapf(err, "failed os.OpenFile as read only")
+		}
+		// JoinAfter helps you respect errors from commonly ignored functions like Close.
+		defer JoinAfter(&err, f.Close)
+
+		// If you're familiar with github.com/pkg/errors, you may be used to ending error returning functions with `return errors.Wrap(err)`
+		// WrapfAndPass extends that to functions returning a value and an error.
+		return WrapfAndPass(f.Write(hash[:]))("failed os.WriteFile")
+	}(ctx, path.Join(os.TempDir(), "hash.brown"))
 
 	if err != nil {
-		slog.LogAttrs(context.TODO(), slog.LevelWarn, "parse failure", slog.Any("err", err))
+		slog.LogAttrs(ctx, slog.LevelError, "hash browns burnt", slog.Any("err", err))
 	}
 
 	// printing the error with something like fmt.Println won't include the metadata in the output.
@@ -65,10 +85,11 @@ func Example() {
 	// unless you use %+v
 	fmt.Printf("%+v", err)
 
-	// Output: level=WARN msg="what is love" err.baby=don't err.file=github.com/danlock/pkg/errors/meta_test.go:30 err.hurt=me err.msg="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" err.file=github.com/danlock/pkg/errors/meta_test.go:55 err.req_id=42 err.user_id=297 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
-	// errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {file=github.com/danlock/pkg/errors/meta_test.go:55,req_id=42,user_id=297}
+	// Output:
+	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/meta_test.go:32
+	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/meta_test.go:75
+	// errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor
+	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/meta_test.go:75]
 }
 
 func TestMeta(t *testing.T) {
@@ -77,7 +98,7 @@ func TestMeta(t *testing.T) {
 	attr3 := slog.Time("ts", time.Time{})
 	attr4 := slog.Bool("bit", true)
 
-	DefaultFileSlogKey = ""
+	DefaultSourceSlogKey = ""
 
 	oops := func() error {
 		return WrapMeta(New("oops"), attr1, attr2)
