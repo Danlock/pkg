@@ -23,8 +23,8 @@ func Errorf(format string, a ...any) error { return ErrorfWithSkip(caller, forma
 // It also includes the file and line info of it's caller.
 func ErrorfWithSkip(skip int, format string, a ...any) error {
 	frame := callerFunc(skip)
-	merr := metaError{error: fmt.Errorf(prependCaller(format, frame), a...)}
-	merr.r.AddAttrs(appendFileToMeta(nil, nil, 0, frame)...)
+	merr := attrError{error: fmt.Errorf(prependCaller(format, frame), a...)}
+	merr.r.AddAttrs(appendFileToAttr(nil, nil, 0, frame)...)
 	return merr
 }
 
@@ -32,7 +32,7 @@ func ErrorfWithSkip(skip int, format string, a ...any) error {
 func WrapAndPass[T any](val T, err error) (T, error) { return val, WrapfWithSkip(err, caller, "") }
 
 // WrapfAndPass wraps a typical error func with a Wrapf function that passes the value through unchanged.
-// WrapMetaCtxAfter contains example usage.
+// WrapAttrCtxAfter contains example usage.
 func WrapfAndPass[T any](val T, err error) func(format string, a ...any) (T, error) {
 	return func(format string, a ...any) (T, error) {
 		return val, WrapfWithSkip(err, caller, format, a...)
@@ -67,13 +67,23 @@ func WrapfWithSkip(err error, skip int, format string, a ...any) error {
 	}
 
 	frame := callerFunc(skip)
-	merr := metaError{error: fmt.Errorf(prependCaller(format, frame), append(a, err)...)}
-	merr.r.AddAttrs(appendFileToMeta(nil, err, 0, frame)...)
+	merr := attrError{error: fmt.Errorf(prependCaller(format, frame), append(a, err)...)}
+	merr.r.AddAttrs(appendFileToAttr(nil, err, 0, frame)...)
 	return merr
 }
 
-// JoinAfter uses error.Join to join deferred errors together.
-// JoinAfter set's errPtr to nil if *errPtr and each errFuncs return nil
+// Join returns an error that wraps the given errors.
+// Any nil error values are discarded. Join returns nil if every value in errs is nil
+func Join(errs ...error) error {
+	// wrap the stdlib error so slog.LogValuer can be called
+	if err := errors.Join(errs...); err != nil {
+		return attrError{error: err}
+	}
+	return nil
+}
+
+// JoinAfter returns an error that wraps the given deferred errors.
+// JoinAfter only updates errPtr if one of the errFuncs returned and error.
 // errPtr must point to the named error return value from the calling function.
 func JoinAfter(errPtr *error, errFuncs ...func() error) {
 	if errPtr == nil {
@@ -87,9 +97,7 @@ func JoinAfter(errPtr *error, errFuncs ...func() error) {
 		}
 	}
 
-	errs = append(errs, *errPtr)
-	// Right now this just returns stdlib errors, but should we wrap it in a metaError if errPtr isn't one?
-	*errPtr = errors.Join(errs...)
+	*errPtr = Join(append(errs, *errPtr)...)
 }
 
 // Into finds the first error in err's chain that matches target type T, and if so, returns it.
@@ -105,29 +113,4 @@ func Must[T any](val T, err error) T {
 		panic(err)
 	}
 	return val
-}
-
-// The following simply call the stdlib so users don't need to include both errors packages.
-
-// ErrUnsupported indicates that a requested operation cannot be performed, because it is unsupported
-var ErrUnsupported = errors.ErrUnsupported
-
-// As finds the first error in err's tree that matches target, and if one is found, sets target to that error value and returns true. Otherwise, it returns false.
-func As(err error, target any) bool {
-	return errors.As(err, target)
-}
-
-// Is reports whether any error in err's tree matches target.
-func Is(err error, target error) bool {
-	return errors.Is(err, target)
-}
-
-// Join returns an error that wraps the given errors.
-func Join(errs ...error) error {
-	return errors.Join(errs...)
-}
-
-// Unwrap returns the result of calling the Unwrap method on err, if err's type contains an Unwrap method returning error. Otherwise, Unwrap returns nil.
-func Unwrap(err error) error {
-	return errors.Unwrap(err)
 }

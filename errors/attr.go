@@ -9,73 +9,40 @@ import (
 	"log/slog"
 	"path"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"strings"
 )
 
-// DefaultSourceSlogKey is the default slog.Attr key used for file:line information when an error is printed via log/slog.
-// If set to "", file:line metadata will not be included in errors.
-var DefaultSourceSlogKey = slog.SourceKey
-
-// DefaultMsgSlogKey is the default slog.Attr key used for the error message when an error is printed via log/slog.
-// If set to "", the error message will not be included in the slog.LogValuer group.
-var DefaultMsgSlogKey = slog.MessageKey
-
-// DefaultFilePackagePrefix trims the file:line path of the build location using this package name.
-// With Go modules it's updated automatically, but without Go modules it defaults to github.com/ and may need to be updated for your project.
-// If set to "" the file metadata is not trimmed at all.
-//
-// As an example by default we trim /home/dan/go/src/github.com/danlock/pkg/errors/meta_test.go:30 down to github.com/danlock/pkg/errors/meta_test.go:30.
-var DefaultFilePackagePrefix = "github.com/"
-
-// ShouldSortUnwrapMeta controls whether UnwrapMeta, and the slog GroupValue log output will be sorted by key for determinism.
-// Note that the msg always comes first and the source last.
-var ShouldSortUnwrapMeta = false
-
-func init() {
-	// Automatically configure DefaultFilePackagePrefix with Go modules.
-	bi, ok := debug.ReadBuildInfo()
-	if !ok || bi == nil || len(bi.Path) == 0 {
-		return
-	}
-	before, _, ok := strings.Cut(bi.Path, "/")
-	if ok {
-		DefaultFilePackagePrefix = before + "/"
-	}
-}
-
-// MetaError is a structured error using slog.Attr for metadata, similar to log/slog.
+// AttrError is a structured error using slog.Attr for metadata, similar to log/slog.
 // If printed with %+v it will also include the metadata, but by default only the error message is shown.
-// The file:line information from the first error in the chain is also included under the DefaultFileSlogKey.
-// Implements slog.LogValuer so each slog.Attr will be logged under a slog.GroupValue.
-type MetaError interface {
+// The file:line information from the first error in the chain is also included under the DefaultSourceSlogKey.
+// Implements slog.LogValuer which logs each slog.Attr in the entire error chain under a slog.GroupValue.
+type AttrError interface {
 	Attrs() iter.Seq[slog.Attr]
 	LogValue() slog.Value
 	Unwrap() error
 	Error() string
 }
 
-var _ = MetaError(metaError{})
-var _ = slog.LogValuer(metaError{})
+var _ = AttrError(attrError{})
+var _ = slog.LogValuer(attrError{})
 
-type metaError struct {
+type attrError struct {
 	error
 	// r is only used to steal log/slog's efficient []slog.Attr implementation
 	// that avoids allocations for 5 Attr or less.
 	r slog.Record
 }
 
-func (e metaError) Unwrap() error  { return e.error }
-func (e metaError) String() string { return e.Error() }
-func (e metaError) Attrs() iter.Seq[slog.Attr] {
+func (e attrError) Unwrap() error  { return e.error }
+func (e attrError) String() string { return e.Error() }
+func (e attrError) Attrs() iter.Seq[slog.Attr] {
 	return func(yield func(slog.Attr) bool) { e.r.Attrs(yield) }
 }
 
 // LogValue logs the error with the file:line information and any existing metadata.
-func (e metaError) LogValue() slog.Value {
-	// UnwrapMeta but leave out the source key
-	metaMap := UnwrapMetaMap(e)
+func (e attrError) LogValue() slog.Value {
+	metaMap := UnwrapAttr(e)
 	meta := make([]slog.Attr, 0, len(metaMap)+1)
 	// Order the msg first and the source last for readability.
 	if DefaultMsgSlogKey != "" {
@@ -87,7 +54,7 @@ func (e metaError) LogValue() slog.Value {
 		}
 	}
 	// Optionally sort the metadata for tests and anyone else who needs deterministic output.
-	if ShouldSortUnwrapMeta {
+	if ShouldSortAttr {
 		slices.SortFunc(meta[1:], func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) })
 	}
 	if DefaultSourceSlogKey != "" {
@@ -99,7 +66,7 @@ func (e metaError) LogValue() slog.Value {
 // Not sure how I feel about this. I like being able to print all at the metadata in a quick and dirty way
 // but if a logger defaults to %+v it would annoyingly duplicate the metadata.
 // However as slog is in the stdlib, it's fair to expect other loggers to conform to slog.LogValuer eventually.
-func (e metaError) Format(s fmt.State, verb rune) {
+func (e attrError) Format(s fmt.State, verb rune) {
 	if verb == 'v' && s.Flag('+') {
 		// This outputs all metadata for ease of debugging but really... just use log/slog.
 		_, _ = io.WriteString(s, e.LogValue().String())
@@ -118,13 +85,13 @@ func callerFunc(skip int) runtime.Frame {
 		return runtime.Frame{}
 	}
 	frame, _ := frames.Next()
-	if DefaultFilePackagePrefix == "" {
+	if DefaultPackagePrefix == "" {
 		return frame
 	}
 	// Trim the file path down to just what we need to identify it from the package name.
-	_, after, _ := strings.Cut(frame.File, DefaultFilePackagePrefix)
+	_, after, _ := strings.Cut(frame.File, DefaultPackagePrefix)
 	if len(after) > 0 {
-		frame.File = DefaultFilePackagePrefix + after
+		frame.File = DefaultPackagePrefix + after
 	}
 	return frame
 }
@@ -142,13 +109,13 @@ func prependCaller(text string, f runtime.Frame) string {
 	return fmt.Sprint(fName, " ", text)
 }
 
-// appendFileToMeta appends the file and line info of the caller to the metadata if it's the first error from this package in the chain.
+// appendFileToAttr appends the file and line info of the caller to the metadata if it's the first error from this package in the chain.
 // If skip is greater than 0 it reads the frame instead of using the passed in frame.
-func appendFileToMeta(meta []slog.Attr, err error, skip int, frame runtime.Frame) []slog.Attr {
+func appendFileToAttr(meta []slog.Attr, err error, skip int, frame runtime.Frame) []slog.Attr {
 	if DefaultSourceSlogKey == "" {
 		return meta
 	}
-	if _, exist := Into[metaError](err); exist {
+	if _, exist := Into[attrError](err); exist {
 		return meta
 	}
 	if skip > 0 {
@@ -157,19 +124,19 @@ func appendFileToMeta(meta []slog.Attr, err error, skip int, frame runtime.Frame
 	return append(meta, slog.String(DefaultSourceSlogKey, fmt.Sprintf("%s:%d", frame.File, frame.Line)))
 }
 
-// updateMetaMapFromErr adds err's metadata into the given map.
-// This deduplicates metadata across the error chain, which allows multiple deferred WrapMetaCtxAfter calls
+// updateAttrMapFromErr adds err's metadata into the given map.
+// This deduplicates metadata across the error chain, which allows multiple deferred WrapAttrCtxAfter calls
 // in a single function for example, which would usually duplicate the fields added to the context.
-func updateMetaMapFromErr(err error, meta map[string]slog.Value) {
+func updateAttrMapFromErr(err error, meta map[string]slog.Value) {
 	// errors.As only returns the first error in an errors.Join error, so we handle those recursively beforehand
 	jerr, ok := Into[interface{ Unwrap() []error }](err)
 	if ok {
 		for _, e := range jerr.Unwrap() {
-			updateMetaMapFromErr(e, meta)
+			updateAttrMapFromErr(e, meta)
 		}
 	}
 	// errors.As will also end up grabbing one of the joined errors, so we output to a map to avoid duplication.
-	var merr MetaError
+	var merr AttrError
 	for errors.As(err, &merr) {
 		for attr := range merr.Attrs() {
 			meta[attr.Key] = attr.Value
@@ -178,34 +145,19 @@ func updateMetaMapFromErr(err error, meta map[string]slog.Value) {
 	}
 }
 
-// UnwrapMeta pulls metadata from every error in the chain for structured logging purposes.
-// Errors in this package implement slog.LogValuer and automatically include the metadata when used with slog.Log.
-// Duplicate keys across the error chain are not supported.
-// As this function internally uses a map, the returned slice order is non deterministic unless ShouldSortUnwrapMeta true.
-func UnwrapMeta(err error) []slog.Attr {
-	metaMap := UnwrapMetaMap(err)
-	meta := make([]slog.Attr, 0, len(metaMap))
-	for k, v := range metaMap {
-		meta = append(meta, slog.Attr{Key: k, Value: v})
-	}
-	if ShouldSortUnwrapMeta {
-		slices.SortFunc(meta, func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) })
-	}
-	return meta
-}
-
-// UnwrapMetaMap returns a map around an error's metadata.
+// UnwrapAttr returns a map around an error chain's metadata.
 // If the error lacks metadata an empty map is returned.
+// Since errors in this package implement slog.LogValuer you don't need to use this to pass slog.Attr to slog.Log.
 //
 // Structured errors can be introspected and handled differently as needed.
 // Duplicate keys across the error chain are not allowed.
 //
-// Seriously consider a sentinel error or custom error type before reaching for this.
+// Seriously consider a sentinel error or custom error type as well.
 // For example open source libraries would be better off publicly exposing custom error types for type safety.
 //
 // Using const keys is strongly recommended to avoid typos.
-func UnwrapMetaMap(err error) map[string]slog.Value {
+func UnwrapAttr(err error) map[string]slog.Value {
 	meta := make(map[string]slog.Value)
-	updateMetaMapFromErr(err, meta)
+	updateAttrMapFromErr(err, meta)
 	return meta
 }

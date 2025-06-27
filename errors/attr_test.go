@@ -18,7 +18,7 @@ import (
 func setup() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
 	DefaultSourceSlogKey = slog.SourceKey
-	ShouldSortUnwrapMeta = true
+	ShouldSortAttr = true
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {
@@ -37,7 +37,7 @@ func Example() {
 	err := baby()
 	if err != nil {
 		// include some metadata about this failure
-		err = WrapMeta(err, slog.String("don't", "hurt me"), slog.String("no", "more"))
+		err = WrapAttr(err, slog.String("don't", "hurt me"), slog.String("no", "more"))
 	}
 	// Typically this error would then bubble up through a few more function calls.
 	// Could be wrapped many more times, but eventually something handles this error.
@@ -46,12 +46,12 @@ func Example() {
 		slog.Warn("what is love", "err", err)
 	}
 	// Pulling out metadata from a context is also possible, useful for attaching something like request IDs to any error from a request handler.
-	ctx := AddMetaToCtx(context.Background(), slog.Uint64("answer", 42))
-	// WrapMetaCtxAfter is an simple and maintainable way to add context metadata to any error returned from a function.
+	ctx := AddAttrToCtx(context.Background(), slog.Uint64("answer", 42))
+	// WrapAttrCtxAfter is an simple and maintainable way to add context metadata to any error returned from a function.
 	// Here is a small function that hashes and writes some random bytes to showcase various error helper functions from this package.
 	_, err = func(ctx context.Context, file string) (_ int, err error) {
 		dest := path.Join(os.TempDir(), "hashed.brown")
-		defer WrapMetaCtxAfter(ctx, &err, slog.String("input", file), slog.String("output", dest))
+		defer WrapAttrCtxAfter(ctx, &err, slog.String("input", file), slog.String("output", dest))
 		fileBytes := make([]byte, 10)
 		// Scrounge up some bytes
 		bytesRead, err := rand.NewChaCha8([32]byte{}).Read(fileBytes)
@@ -59,7 +59,7 @@ func Example() {
 			return 0, Wrapf(err, "failed to generate bytes")
 		}
 		// Ensure we track how much we read in case that's relevant later
-		defer WrapMetaCtxAfter(ctx, &err, slog.Int("bytes_read", bytesRead))
+		defer WrapAttrCtxAfter(ctx, &err, slog.Int("bytes_read", bytesRead))
 
 		hash := sha256.Sum256(fileBytes)
 		// Open this file for writing... or reading... whatever.
@@ -69,7 +69,6 @@ func Example() {
 		}
 		// JoinAfter helps you respect errors from commonly ignored functions like Close.
 		defer JoinAfter(&err, f.Close)
-
 		// If you're familiar with github.com/pkg/errors, you may be used to ending error returning functions with `return errors.Wrap(err)`
 		// WrapfAndPass extends that to functions returning a value and an error.
 		return WrapfAndPass(f.Write(hash[:]))("failed os.WriteFile")
@@ -86,13 +85,13 @@ func Example() {
 	fmt.Printf("%+v", err)
 
 	// Output:
-	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/meta_test.go:32
-	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/meta_test.go:75
+	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/attr_test.go:32
+	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/attr_test.go:74
 	// errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor
-	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/meta_test.go:75]
+	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/attr_test.go:74]
 }
 
-func TestMeta(t *testing.T) {
+func TestAttr(t *testing.T) {
 	attr1 := slog.String("key", "value")
 	attr2 := slog.Uint64("id", 1234)
 	attr3 := slog.Time("ts", time.Time{})
@@ -101,26 +100,26 @@ func TestMeta(t *testing.T) {
 	DefaultSourceSlogKey = ""
 
 	oops := func() error {
-		return WrapMeta(New("oops"), attr1, attr2)
+		return WrapAttr(New("oops"), attr1, attr2)
 	}
 
 	regErr := func(err error) error {
 		return fmt.Errorf("stdlib %w", err)
 	}
 
-	test.Equality(t, slog.KindString, UnwrapMetaMap(oops())[attr1.Key].Kind())
+	test.Equality(t, slog.KindString, UnwrapAttr(oops())[attr1.Key].Kind())
 
 	var err = error(nil)
 	tests := []struct {
 		name      string
 		err       error
 		wantErr   bool
-		wantMeta  []slog.Attr
+		wantAttr  []slog.Attr
 		wantBasic string
 	}{
 		{
 			"zilch",
-			WrapMeta(err, attr1, attr2),
+			WrapAttr(err, attr1, attr2),
 			false,
 			nil,
 			"",
@@ -130,35 +129,35 @@ func TestMeta(t *testing.T) {
 			oops(),
 			true,
 			[]slog.Attr{attr1, attr2},
-			"errors.TestMeta.func1 oops",
+			"errors.TestAttr.func1 oops",
 		},
 		{
 			"triple decker",
 			func() error {
-				return WrapMeta(regErr(oops()), attr3)
+				return WrapAttr(regErr(oops()), attr3)
 			}(),
 			true,
 			[]slog.Attr{attr3, attr1, attr2},
-			"stdlib errors.TestMeta.func1 oops",
+			"stdlib errors.TestAttr.func1 oops",
 		},
 		{
 			"the fat bastard",
 			func() error {
-				return Wrap(Join(Wrap(Join(WrapMeta(nil), WrapMeta(regErr(oops()), attr3), Wrap(nil), WrapMeta(New("please stop"), attr4))), WrapMeta(New("No dupes"), attr1)))
+				return Wrap(Join(Wrap(Join(WrapAttr(nil), WrapAttr(regErr(oops()), attr3), Wrap(nil), WrapAttr(New("please stop"), attr4))), WrapAttr(New("No dupes"), attr1)))
 			}(),
 			true,
 			[]slog.Attr{attr3, attr1, attr2, attr4},
-			"errors.TestMeta.func4 errors.TestMeta.func4 stdlib errors.TestMeta.func1 oops\nerrors.TestMeta.func4 please stop\nerrors.TestMeta.func4 No dupes",
+			"errors.TestAttr.func4 errors.TestAttr.func4 stdlib errors.TestAttr.func1 oops\nerrors.TestAttr.func4 please stop\nerrors.TestAttr.func4 No dupes",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			test.Equality(t, tt.wantErr, tt.err != nil, "WrapMeta() error = %+v, wantErr %v", tt.err, tt.wantErr)
+			test.Equality(t, tt.wantErr, tt.err != nil, "WrapAttr() error = %+v, wantErr %v", tt.err, tt.wantErr)
 
-			if len(tt.wantMeta) > 0 {
-				metaMap := UnwrapMetaMap(tt.err)
+			if len(tt.wantAttr) > 0 {
+				metaMap := UnwrapAttr(tt.err)
 				expandedStr := fmt.Sprintf("%+v", tt.err)
-				for _, attr := range tt.wantMeta {
+				for _, attr := range tt.wantAttr {
 					attrStr := attr.String()
 					test.Truth(t, strings.Contains(expandedStr, attrStr), "expanded error string %s didn't contain %s", expandedStr, attrStr)
 

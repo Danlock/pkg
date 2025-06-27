@@ -17,16 +17,17 @@ But relying only on the stdlib's fmt.Errorf will have you grepping through the c
 
 
 This package encourages you to Wrap errors as they bubble up through the call stack. Wrapping multiple times won't punish you with stuttered stack traces.
+They will only improve the error with more function names.
 
-The resulting error will be self-explanatory... Or more realistically as explanatory your package and function names.
+And the resulting error will be self-explanatory... Or more realistically as explanatory your package and function names.
 https://go.dev/doc/effective_go#names is still great advice.
 
 The error will also include the file:line info from the very first error in the chain.
 
-WrapMeta enables structured errors, allowing metadata to be easily logged.
-log/slog support is included. Slogging an error will include the file:line info from the start of an error chain and any metadata from WrapMeta calls.
+WrapAttr enables structured errors, allowing metadata to be easily included in logs.
+log/slog support is built in. Slogging an error will include the file:line info from the start of an error chain and any metadata from WrapAttr calls.
 
-errors/meta_test.go includes example output.
+errors/attr_test.go includes example output.
 
 ## ptr
 
