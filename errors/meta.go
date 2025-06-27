@@ -40,12 +40,11 @@ func init() {
 	}
 }
 
-// MetaError is a structured stdlib Go error using slog.Attr for metadata.
+// MetaError is a structured error using slog.Attr for metadata, similar to log/slog.
 // If printed with %+v it will also include the metadata, but by default only the error message is shown.
-// It will also include the file:line information from the first error in the chain under the DefaultFileSlogKey.
-// Meant for use with log/slog where everything converts to a slog.GroupValue when logged.
+// The file:line information from the first error in the chain is also included under the DefaultFileSlogKey.
+// Uses slog.LogValuer so each slog.Attr will be logged as a slog.GroupValue.
 type MetaError interface {
-	// Meta returns the metadata associated with this error.
 	Meta() iter.Seq[slog.Attr]
 	LogValue() slog.Value
 	Unwrap() error

@@ -52,10 +52,7 @@ func Example() {
 	err = func(id uint64, parseMe string) (err error) {
 		defer WrapMetaCtxAfter(ctx, &err, slog.Uint64("user_id", id))
 		_, err = strconv.Atoi(parseMe)
-		if err != nil {
-			return Wrap(err)
-		}
-		return nil
+		return Wrap(err)
 	}(0451, "trust me i'm numerical")
 
 	if err != nil {
@@ -69,9 +66,9 @@ func Example() {
 	fmt.Printf("%+v", err)
 
 	// Output: level=WARN msg="what is love" err.baby=don't err.file=github.com/danlock/pkg/errors/meta_test.go:30 err.hurt=me err.msg="errors.dontHurtMe no more"
-	// level=WARN msg="parse failure" err.file=github.com/danlock/pkg/errors/meta_test.go:56 err.req_id=42 err.user_id=297 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
+	// level=WARN msg="parse failure" err.file=github.com/danlock/pkg/errors/meta_test.go:55 err.req_id=42 err.user_id=297 err.msg="errors.Example.func1 strconv.Atoi: parsing \"trust me i'm numerical\": invalid syntax"
 	// errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax
-	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {file=github.com/danlock/pkg/errors/meta_test.go:56,req_id=42,user_id=297}
+	// errors.Example doubleWrap errors.Example.func1 strconv.Atoi: parsing "trust me i'm numerical": invalid syntax {file=github.com/danlock/pkg/errors/meta_test.go:55,req_id=42,user_id=297}
 }
 
 func TestMeta(t *testing.T) {
