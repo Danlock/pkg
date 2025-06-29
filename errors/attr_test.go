@@ -69,9 +69,10 @@ func Example() {
 		}
 		// JoinAfter helps you respect errors from commonly ignored functions like Close.
 		defer JoinAfter(&err, f.Close)
-		// If you're familiar with github.com/pkg/errors, you may be used to ending error returning functions with `return errors.Wrap(err)`
-		// WrapfAndPass extends that to functions returning a value and an error.
-		return WrapfAndPass(f.Write(hash[:]))("failed os.WriteFile")
+		// Wrap* functions return nil if the err is nil, so the last if err != nil statement can typically be replaced and simplified.
+		// The smaller functions you write, the more you can take advantage of this.
+		bytesWritten, err := f.Write(hash[:])
+		return bytesWritten, Wrapf(err, "failed os.WriteFile")
 	}(ctx, path.Join(os.TempDir(), "hash.brown"))
 
 	if err != nil {
@@ -86,9 +87,9 @@ func Example() {
 
 	// Output:
 	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/attr_test.go:32
-	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/attr_test.go:74
+	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/attr_test.go:75
 	// errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor
-	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/attr_test.go:74]
+	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/attr_test.go:75]
 }
 
 func TestAttr(t *testing.T) {

@@ -31,6 +31,7 @@ type attrError struct {
 	error
 	// r is only used to steal log/slog's efficient []slog.Attr implementation
 	// that avoids allocations for 5 Attr or less.
+	// There is intentionally no way to increase an attrError attrs after it has been created.
 	r slog.Record
 }
 

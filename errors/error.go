@@ -28,17 +28,6 @@ func ErrorfWithSkip(skip int, format string, a ...any) error {
 	return merr
 }
 
-// WrapAndPass wraps a typical error func with Wrap and passes the value through unchanged.
-func WrapAndPass[T any](val T, err error) (T, error) { return val, WrapfWithSkip(err, caller, "") }
-
-// WrapfAndPass wraps a typical error func with a Wrapf function that passes the value through unchanged.
-// WrapAttrCtxAfter contains example usage.
-func WrapfAndPass[T any](val T, err error) func(format string, a ...any) (T, error) {
-	return func(format string, a ...any) (T, error) {
-		return val, WrapfWithSkip(err, caller, format, a...)
-	}
-}
-
 // Wrap wraps an error with the caller's package.func prepended.
 // Similar to github.com/pkg/errors.Wrap and unlike fmt.Errorf it returns nil if err is nil.
 // If not wrapping an error from this Go package it also includes the file and line info of it's caller.

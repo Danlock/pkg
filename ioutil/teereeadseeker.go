@@ -33,5 +33,6 @@ func (t *teeReadSeeker) Read(p []byte) (n int, err error) {
 }
 
 func (t *teeReadSeeker) Seek(offset int64, whence int) (int64, error) {
-	return errors.WrapAndPass(t.r.Seek(offset, whence))
+	seeked, err := t.r.Seek(offset, whence)
+	return seeked, errors.Wrap(err)
 }
