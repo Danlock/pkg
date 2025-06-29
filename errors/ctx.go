@@ -82,22 +82,23 @@ func WrapAttrCtx(ctx context.Context, err error, meta ...slog.Attr) error {
 // Defer at the top of a function with a named return error variable to wrap any error returned from the function with your desired metadata.
 // An example of a function that returns structured errors to slog with convenience functions to reduce boilerplate:
 //
-//	func DeleteDevice(ctx context.Context, tx sqlx.ExecerContext, id uint64) (res sql.Result, err error) {
+//	func DeleteDevice(ctx context.Context, tx sqlx.ExecerContext, id uint64) (err error) {
 //		defer errors.WrapAttrCtxAfter(ctx, &err, slog.Uint64("device_id", id))
 //		propQuery := `DELETE FROM device_properties WHERE device_id = ?`
 //		propsResult, err := tx.ExecContext(ctx, propQuery, id)
 //		if err != nil {
-//			return res, errors.Wrapf(err, "failed deleting device properties")
+//			return errors.Wrapf(err, "failed deleting device properties")
 //		}
 //
 //		propsDeleted, err := propsResult.RowsAffected()
 //		if err != nil {
-//			return res, errors.Wrapf(err, "failed counting deleted device properties")
+//			return errors.Wrapf(err, "failed counting deleted device properties")
 //		}
 //		defer errors.WrapAttrCtxAfter(ctx, &err, slog.Uint64("deleted_props", propsDeleted))
 //
 //		query := `DELETE FROM device WHERE id = ?`
-//		return errors.WrapfAndPass(tx.ExecContext(ctx, query, id))("tx.Exec failed")
+//		_,err = tx.ExecContext(ctx, query, id)
+//		return errors.Wrapf(err, "tx.Exec failed")
 //	}
 //
 // The output of slogging this function's failure with slog.Errorf("db error", "err", err):
