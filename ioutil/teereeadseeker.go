@@ -2,9 +2,8 @@
 package ioutil
 
 import (
+	"fmt"
 	"io"
-
-	"github.com/danlock/pkg/errors"
 )
 
 // TeeReadSeeker returns a [ReadSeeker] that writes to w what it reads from r.
@@ -26,7 +25,7 @@ func (t *teeReadSeeker) Read(p []byte) (n int, err error) {
 	n, err = t.r.Read(p)
 	if n > 0 {
 		if n, err := t.w.Write(p[:n]); err != nil {
-			return n, errors.Wrapf(err, "Write failed")
+			return n, fmt.Errorf("w.Write failed %w", err)
 		}
 	}
 	return
@@ -34,5 +33,9 @@ func (t *teeReadSeeker) Read(p []byte) (n int, err error) {
 
 func (t *teeReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	seeked, err := t.r.Seek(offset, whence)
-	return seeked, errors.Wrap(err)
+
+	if err != nil {
+		return seeked, fmt.Errorf("r.Seek failed %w", err)
+	}
+	return seeked, nil
 }

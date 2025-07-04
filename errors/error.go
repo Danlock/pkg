@@ -72,7 +72,7 @@ func Join(errs ...error) error {
 }
 
 // JoinAfter returns an error that wraps the given deferred errors.
-// JoinAfter only updates errPtr if one of the errFuncs returned and error.
+// JoinAfter only updates errPtr if one of the errFuncs returned an error.
 // errPtr must point to the named error return value from the calling function.
 func JoinAfter(errPtr *error, errFuncs ...func() error) {
 	if errPtr == nil {

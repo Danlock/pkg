@@ -42,20 +42,23 @@ func init() {
 
 // The following simply call the stdlib so users don't need to include both errors packages.
 
-// ErrUnsupported indicates that a requested operation cannot be performed, because it is unsupported
+// ErrUnsupported indicates that a requested operation cannot be performed, because it is unsupported. Calls stdlib errors.ErrUnsupported
 var ErrUnsupported = errors.ErrUnsupported
 
 // As finds the first error in err's tree that matches target, and if one is found, sets target to that error value and returns true. Otherwise, it returns false.
+// Calls stdlib errors.As
 func As(err error, target any) bool {
 	return errors.As(err, target)
 }
 
 // Is reports whether any error in err's tree matches target.
+// Calls stdlib errors.Is
 func Is(err error, target error) bool {
 	return errors.Is(err, target)
 }
 
 // Unwrap returns the result of calling the Unwrap method on err, if err's type contains an Unwrap method returning error. Otherwise, Unwrap returns nil.
+// Calls stdlib errors.Unwrap
 func Unwrap(err error) error {
 	return errors.Unwrap(err)
 }

@@ -151,14 +151,33 @@ func updateAttrMapFromErr(err error, meta map[string]slog.Value) {
 // Since errors in this package implement slog.LogValuer you don't need to use this to pass slog.Attr to slog.Log.
 //
 // Structured errors can be introspected and handled differently as needed.
-// Duplicate keys across the error chain are not allowed.
-//
-// Seriously consider a sentinel error or custom error type as well.
-// For example open source libraries would be better off publicly exposing custom error types for type safety.
-//
-// Using const keys is strongly recommended to avoid typos.
 func UnwrapAttr(err error) map[string]slog.Value {
 	meta := make(map[string]slog.Value)
 	updateAttrMapFromErr(err, meta)
 	return meta
+}
+
+// Get retrieves a value from the error's metadata.
+// Returns an error if the key doesn't exist or the type is incorrect instead of panicking like the slog.Value methods do.
+// This can be used for retrieving an error code added to the error chain, for example Get[uint64](meta, "http.code")
+//
+// Note that meta["http.code"].Uint64() is more efficient in regards to allocations.
+func Get[T any](meta map[string]slog.Value, key string) (val T, err error) {
+	if meta == nil {
+		return val, errors.New("errors.Get called with nil meta")
+	}
+	// Was tempted to return a structured error with key as an attr,
+	// but I feel libraries should stick with stdlib errors, fmt.Errorf and if needed, a custom error type.
+	// Structured error attributes are only an application concern, especially since duplicate keys aren't supported.
+	// What if the application wants to use the same key for a different value?
+	// The file:line info is also most useful when it points to where the application calls the library, instead of deep within the library itself.
+	sVal, ok := meta[key]
+	if !ok {
+		return val, fmt.Errorf("errors.Get key %s not found", key)
+	}
+	val, ok = sVal.Any().(T)
+	if !ok {
+		return val, fmt.Errorf("errors.Get key %s had kind %s and not type %T", key, sVal.Kind(), val)
+	}
+	return val, nil
 }

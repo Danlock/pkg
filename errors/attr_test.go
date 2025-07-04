@@ -63,7 +63,7 @@ func Example() {
 
 		hash := sha256.Sum256(fileBytes)
 		// Open this file for writing... or reading... whatever.
-		f, err := os.OpenFile(path.Clean(dest), os.O_RDONLY, 0600)
+		f, err := os.OpenFile(path.Clean(dest), os.O_RDONLY|os.O_CREATE, 0600)
 		if err != nil {
 			return 0, Wrapf(err, "failed os.OpenFile as read only")
 		}
@@ -107,8 +107,11 @@ func TestAttr(t *testing.T) {
 	regErr := func(err error) error {
 		return fmt.Errorf("stdlib %w", err)
 	}
+	oopsMeta := UnwrapAttr(oops())
+	test.Equality(t, slog.KindString, oopsMeta[attr1.Key].Kind())
 
-	test.Equality(t, slog.KindString, UnwrapAttr(oops())[attr1.Key].Kind())
+	attr2ID := test.AbortOnErrorVal(Get[uint64](oopsMeta, attr2.Key))(t, "Get failed")
+	test.Equality(t, attr2.Value.Uint64(), attr2ID, "Get got incorrect value")
 
 	var err = error(nil)
 	tests := []struct {

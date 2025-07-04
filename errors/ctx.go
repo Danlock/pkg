@@ -6,7 +6,7 @@ import (
 	"runtime"
 )
 
-type ctxKey struct{}
+type attrCtxKey struct{}
 
 // WrapAttr is WrapAttrCtx without the context.
 func WrapAttr(err error, meta ...slog.Attr) error {
@@ -21,7 +21,7 @@ func appendAttrFromCtx(ctx context.Context, meta []slog.Attr) []slog.Attr {
 	if ctx == nil {
 		return meta
 	}
-	parent, ok := ctx.Value(ctxKey{}).([]slog.Attr)
+	parent, ok := ctx.Value(attrCtxKey{}).([]slog.Attr)
 	if !ok {
 		return meta
 	}
@@ -43,8 +43,8 @@ func maybeWrapAttrError(err error, meta []slog.Attr) error {
 	return merr
 }
 
-// AddAttrToCtx adds metadata to the context that will be added to the error once WrapAttrCtx is called.
-// It appends to any existing metadata in the context.
+// AddAttrToCtx adds metadata to the context.
+// Existing context metadata willl be carried forth in the new context.
 //
 // The only way to retrieve the metadata is with UnwrapAttr on an error wrapped with WrapAttrCtx,
 // or by just slogging the error which handles this internally.
@@ -55,7 +55,7 @@ func AddAttrToCtx(ctx context.Context, meta ...slog.Attr) context.Context {
 	if ctx == nil {
 		return nil
 	}
-	return context.WithValue(ctx, ctxKey{}, appendAttrFromCtx(ctx, meta))
+	return context.WithValue(ctx, attrCtxKey{}, appendAttrFromCtx(ctx, meta))
 }
 
 // WrapAttrCtx wraps an error with metadata for structured logging.
@@ -67,8 +67,8 @@ func AddAttrToCtx(ctx context.Context, meta ...slog.Attr) context.Context {
 // If 0 metadata will be included with the error, i.e both context is nil and meta is empty,
 // the original error will be returned to avoid bloating the error chain.
 //
-// Note that the slog output contains 2 keys by default, DefaultSourceSlogKey and DefaultMsgSlogKey,
-// which use slog's standard "source" and "msg". Duplicate keys are not supported.
+// Note that the slog.LogValuer output contains 2 keys by default, "msg" and "source",
+// These can be changed via DefaultMsgSlogKey and DefaultSourceSlogKey. Duplicate keys are not supported.
 func WrapAttrCtx(ctx context.Context, err error, meta ...slog.Attr) error {
 	if err == nil {
 		return nil
@@ -102,10 +102,11 @@ func WrapAttrCtx(ctx context.Context, err error, meta ...slog.Attr) error {
 //	}
 //
 // The output of slogging this function's failure with slog.Errorf("db error", "err", err):
-// 2025/06/26 15:22:57 ERROR db error err.msg="errors.DeleteDevice tx.Exec failed" err.device_id=9 err.deleted_props=5 err.source=github.com/danlock/pkg/errors/ctx.go:76
+//
+//	2025/06/26 15:22:57 ERROR db error err.msg="errors.DeleteDevice tx.Exec failed" err.device_id=9 err.deleted_props=5 err.source=github.com/danlock/pkg/errors/ctx.go:76
 //
 // Using defer WrapAttrCtxAfter throughout our code makes it more maintainable by adding metadata when it's available, only if the error exists.
-// Consider using WrapAttrCtxAfter after any error returning function with a context.Context parameter.
+// Consider using WrapAttrCtxAfter within any error returning function with a context.Context parameter.
 func WrapAttrCtxAfter(ctx context.Context, errPtr *error, meta ...slog.Attr) {
 	if errPtr == nil {
 		panic("WrapAttrCtxAfter errPtr must point at the caller function's named return error variable")
