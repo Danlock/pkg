@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -18,7 +19,7 @@ import (
 func setup() {
 	// This is just setup code that makes slog's output deterministic so the example output is stable.
 	DefaultSourceSlogKey = slog.SourceKey
-	ShouldSortAttr = true
+	AttrCompareSortFunc = func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) }
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == slog.TimeKey {

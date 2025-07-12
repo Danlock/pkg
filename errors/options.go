@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// Various options configuring the behavior of this package.
+// Set before error creation.
 var (
 	// DefaultSourceSlogKey is the default slog.Attr key used for file:line information when an error is printed.
 	// If set to "", file:line metadata will not be included in errors.
@@ -23,9 +25,13 @@ var (
 	// trimming example: /home/dan/go/src/github.com/danlock/pkg/errors/attr_test.go:30 -> github.com/danlock/pkg/errors/attr_test.go:30
 	DefaultPackagePrefix = "github.com/"
 
-	// ShouldSortAttr controls whether LogValue output will be sorted by key for determinism.
+	// AttrCompareSortFunc controls how an errors LogValue output will be sorted for determinism.
+	// By default log output is nondeterministic because an error's slog.Attr order can change.
 	// Regardless of this value msg will be first and source will be last.
-	ShouldSortAttr = false
+	// Example usage:
+	//
+	//	errors.AttrCompareSortFunc = func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) }
+	AttrCompareSortFunc func(slog.Attr, slog.Attr) int
 )
 
 func init() {

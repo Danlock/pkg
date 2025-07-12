@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +25,7 @@ type AttrError interface {
 
 var _ = AttrError(attrError{})
 var _ = slog.LogValuer(attrError{})
+var _ = error(attrError{})
 
 type attrError struct {
 	error
@@ -41,7 +41,7 @@ func (e attrError) Attrs() iter.Seq[slog.Attr] {
 	return func(yield func(slog.Attr) bool) { e.r.Attrs(yield) }
 }
 
-// LogValue logs the error with the file:line information and any existing metadata.
+// LogValue returns a slog.GroupValue with the file:line information and any existing metadata.
 func (e attrError) LogValue() slog.Value {
 	metaMap := UnwrapAttr(e)
 	meta := make([]slog.Attr, 0, len(metaMap)+1)
@@ -55,8 +55,8 @@ func (e attrError) LogValue() slog.Value {
 		}
 	}
 	// Optionally sort the metadata for tests and anyone else who needs deterministic output.
-	if ShouldSortAttr {
-		slices.SortFunc(meta[1:], func(a, b slog.Attr) int { return cmp.Compare(a.Key, b.Key) })
+	if AttrCompareSortFunc != nil {
+		slices.SortFunc(meta[1:], AttrCompareSortFunc)
 	}
 	if DefaultSourceSlogKey != "" {
 		meta = append(meta, slog.Attr{Key: DefaultSourceSlogKey, Value: metaMap[DefaultSourceSlogKey]})
@@ -163,14 +163,17 @@ func UnwrapAttr(err error) map[string]slog.Value {
 //
 // Note that meta["http.code"].Uint64() is more efficient in regards to allocations.
 func Get[T any](meta map[string]slog.Value, key string) (val T, err error) {
-	if meta == nil {
-		return val, errors.New("errors.Get called with nil meta")
-	}
 	// Was tempted to return a structured error with key as an attr,
 	// but I feel libraries should stick with stdlib errors, fmt.Errorf and if needed, a custom error type.
 	// Structured error attributes are only an application concern, especially since duplicate keys aren't supported.
 	// What if the application wants to use the same key for a different value?
-	// The file:line info is also most useful when it points to where the application calls the library, instead of deep within the library itself.
+	// The file:line info is also most useful when it points to where an application calls a library, instead of deep within the library itself.
+	//
+	// If regardless you want to use this structured error library, at least try to minimize duplicate key issues by grouping under your package name:
+	// defer WrapAttrCtxAfter(nil, &err, slog.Group("github.com/your/package", "key", val))
+	if meta == nil {
+		return val, errors.New("errors.Get called with nil meta")
+	}
 	sVal, ok := meta[key]
 	if !ok {
 		return val, fmt.Errorf("errors.Get key %s not found", key)
