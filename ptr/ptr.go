@@ -18,9 +18,9 @@ func From[T any](p *T) (zero T) {
 	return *p
 }
 
-// IsInterfaceNil checks if either an interface or it's underlying concrete value is nil.
+// IsNilInterface checks if either an interface or it's underlying concrete value is nil.
 // If the type can't be nil, it return's false.
-func IsInterfaceNil(i any) bool {
+func IsNilInterface(i any) bool {
 	if i == nil {
 		return true
 	}
@@ -38,7 +38,7 @@ func IsInterfaceNil(i any) bool {
 func Or[T comparable](vals ...T) T {
 	var zero T
 	for _, val := range vals {
-		if val != zero && !IsInterfaceNil(val) {
+		if val != zero && !IsNilInterface(val) {
 			return val
 		}
 	}
