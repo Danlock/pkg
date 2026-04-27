@@ -5,14 +5,10 @@ package set
 import (
 	"iter"
 	"maps"
-	"slices"
 )
 
-// ToSeq concisely converts values into an iter.Seq.
-// The values are not made unique.
-// Not directly related to sets so may be moved out of this package but
-// set.ToSeq(1,2,3) is more concise than slices.Values([]int{1,2,3}).
-func ToSeq[T any](v ...T) iter.Seq[T] { return slices.Values(v) }
+// ToSeq concisely converts values into an unique iter.Seq.
+func ToSeq[T comparable](v ...T) iter.Seq[T] { return From(v...).All() }
 
 type Set[T comparable] map[T]struct{}
 

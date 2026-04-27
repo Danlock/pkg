@@ -44,12 +44,12 @@ func maybeWrapAttrError(err error, meta []slog.Attr) error {
 }
 
 // AddAttrToCtx adds metadata to the context.
-// Existing context metadata willl be carried forth in the new context.
+// Existing context metadata will be carried forth in the new context.
 //
 // The only way to retrieve the metadata is with UnwrapAttr on an error wrapped with WrapAttrCtx,
 // or by just slogging the error which handles this internally.
 //
-// If you are interested in pulling values out of the context for other purposes,
+// If you are interested in pulling slog.Attr out of the context for other purposes,
 // take a look at https://github.com/veqryn/slog-context instead.
 func AddAttrToCtx(ctx context.Context, meta ...slog.Attr) context.Context {
 	if ctx == nil {

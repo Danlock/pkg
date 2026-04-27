@@ -87,10 +87,10 @@ func Example() {
 	fmt.Printf("%+v", err)
 
 	// Output:
-	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/attr_test.go:32
-	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/attr_test.go:75
+	// level=WARN msg="what is love" err.msg="errors.baby don't hurt me" err.don't="hurt me" err.no=more err.source=github.com/danlock/pkg/errors/attr_test.go:33
+	// level=ERROR msg="hash browns burnt" err.msg="errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor" err.answer=42 err.bytes_read=10 err.input=/tmp/hash.brown err.output=/tmp/hashed.brown err.source=github.com/danlock/pkg/errors/attr_test.go:76
 	// errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor
-	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/attr_test.go:75]
+	// [msg=errors.Example doubleWrap errors.Example.func1 failed os.WriteFile write /tmp/hashed.brown: bad file descriptor answer=42 bytes_read=10 input=/tmp/hash.brown output=/tmp/hashed.brown source=github.com/danlock/pkg/errors/attr_test.go:76]
 }
 
 func TestAttr(t *testing.T) {
