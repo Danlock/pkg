@@ -37,9 +37,7 @@ type attrError struct {
 
 func (e attrError) Unwrap() error  { return e.error }
 func (e attrError) String() string { return e.Error() }
-func (e attrError) Attrs() iter.Seq[slog.Attr] {
-	return func(yield func(slog.Attr) bool) { e.r.Attrs(yield) }
-}
+func (e attrError) Attrs() iter.Seq[slog.Attr] { return e.r.Attrs }
 
 // LogValue returns a slog.GroupValue with the file:line information and any existing metadata.
 func (e attrError) LogValue() slog.Value {
